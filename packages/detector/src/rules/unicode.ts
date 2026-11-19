@@ -1,3 +1,6 @@
+/* Invisible joiners, selectors and modifiers are listed in character classes on
+   purpose: each one is matched on its own, never as a sequence. */
+/* eslint-disable no-misleading-character-class */
 import { isInstructionLike } from '../instruction.js';
 import type { Finding } from '../types.js';
 import { excerpt, stripInvisible } from '../util.js';

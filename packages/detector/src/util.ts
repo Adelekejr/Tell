@@ -1,3 +1,6 @@
+/* Invisible joiners, selectors and modifiers are listed in character classes on
+   purpose: each one is matched on its own, never as a sequence. */
+/* eslint-disable no-misleading-character-class */
 import type { Severity } from './types.js';
 
 const SEVERITY_RANK: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3 };

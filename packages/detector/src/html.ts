@@ -159,10 +159,11 @@ export function parseHtml(html: string): ParsedHtml {
     }
     for (const [k, v] of parseDeclarations(attrs.get('style') ?? '')) decls.set(k, v);
 
-    let reason: HiddenReason | null = null;
-    if (attrs.has('hidden')) reason = 'hidden-attribute';
-    else if (classes.some((c) => SR_ONLY_CLASSES.has(c))) reason = 'screen-reader-only';
-    else reason = hiddenReason(decls, parent.bg);
+    const reason: HiddenReason | null = attrs.has('hidden')
+      ? 'hidden-attribute'
+      : classes.some((c) => SR_ONLY_CLASSES.has(c))
+        ? 'screen-reader-only'
+        : hiddenReason(decls, parent.bg);
 
     const frame: Frame = {
       tag,

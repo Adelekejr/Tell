@@ -1,0 +1,7 @@
+packages:
+  - apps/*
+  - packages/*
+  - api
+allowBuilds:
+  '@firebase/util': false
+  protobufjs: false

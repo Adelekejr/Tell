@@ -5,9 +5,10 @@
  * for the public key, and not even that when the key is pinned in the code.
  */
 import type { PublicKeyInfo, SignedCard } from '@tell/shared';
-import { PINNED_KEYS, cardMessage, fromBase64Url, isSignedCard, toHex, utf8Bytes } from '@tell/shared';
+import { DEMO_KEY, PINNED_KEYS, SAMPLE_SLUG, cardMessage, fromBase64Url, isSignedCard, toHex, utf8Bytes } from '@tell/shared';
 
-export type KeySource = 'pinned' | 'published';
+/** `sample`: the demo key that signed only the made-up sample card. */
+export type KeySource = 'pinned' | 'published' | 'sample';
 export type Engine = 'web-crypto' | 'noble';
 
 export type Verdict =
@@ -18,11 +19,12 @@ export interface KeyedInfo extends PublicKeyInfo {
   source: KeySource;
 }
 
-/** Pinned keys win over published ones with the same id. */
+/** Pinned keys win over published ones with the same id; the demo key can't be replaced. */
 export function mergeKeys(published: readonly PublicKeyInfo[]): KeyedInfo[] {
   const out = new Map<string, KeyedInfo>();
   for (const k of published) if (k.alg === 'Ed25519') out.set(k.kid, { ...k, source: 'published' });
   for (const k of PINNED_KEYS) out.set(k.kid, { ...k, source: 'pinned' });
+  out.set(DEMO_KEY.kid, { ...DEMO_KEY, source: 'sample' });
   return [...out.values()];
 }
 
@@ -84,6 +86,7 @@ export async function promptMatches(card: SignedCard, prompt: string | null): Pr
 export function readPasted(text: string): { card: unknown } | { id: string } | null {
   const t = text.trim();
   if (!t) return null;
+  if (new RegExp(`(?:/v/|/card/)${SAMPLE_SLUG}(?![\\w-])`).test(t) || t === SAMPLE_SLUG) return { id: SAMPLE_SLUG };
   const id = /(?:\/v\/|\/card\/)([a-z2-7]{16})\b/.exec(t)?.[1] ?? (/^[a-z2-7]{16}$/.test(t) ? t : null);
   if (id) return { id };
   try {

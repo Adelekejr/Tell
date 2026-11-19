@@ -19,15 +19,20 @@
 }
 .sheet-top {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: var(--s3);
+  gap: 8px var(--s3);
 }
+/* Never cut the agent's name: when it and the tag don't fit on one line
+   ("Browser-reported" at 360-412 px), the tag moves under the name. */
 .sheet-top .label {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.sheet-top > span:last-child {
+  flex: none;
 }
 .sheet-grade {
   margin: var(--s3) 0 var(--s2);

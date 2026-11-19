@@ -1,5 +1,5 @@
 import type { CardPayload } from '@tell/shared';
-import { cardSummary } from '@tell/shared';
+import { DEMO_KID, cardSummary } from '@tell/shared';
 import { Fragment } from 'react';
 import type { Check } from '../card/useVerifiedCard';
 import { EVIDENCE_TEXT, RESULT_WORD, cardKicker, gradeLabel, trapName } from '../card/text';
@@ -49,7 +49,11 @@ export function ScoreSheet({ payload: p, kid, check }: { payload: CardPayload; k
       <div className="sheet-head">
         <div className="sheet-top">
           <span className="label">{cardKicker(p)}</span>
-          {p.witnessed ? (
+          {kid === DEMO_KID ? (
+            <span title="Made up to show what a card looks like">
+              <Badge tone="accent">Sample</Badge>
+            </span>
+          ) : p.witnessed ? (
             <span title={'Seen by Tell\u2019s server'}>
               <Badge tone="solid">Witnessed</Badge>
             </span>

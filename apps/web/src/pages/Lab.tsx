@@ -15,6 +15,11 @@ const HOURS = RUN_TTL_MS / 3_600_000;
 // The drill pulls in the trap pages and the detector; load it only when its tab opens.
 const PromptDrill = lazy(() => import('../components/PromptDrill').then((m) => ({ default: m.PromptDrill })));
 
+/** ?sample=weak|strong opens the drill with a made-up sample prompt (from the Try it section). */
+function sampleOf(v: string | null): 'weak' | 'strong' | null {
+  return v === 'weak' || v === 'strong' ? v : null;
+}
+
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
     <li className="lab-step">
@@ -104,7 +109,8 @@ function LiveTest() {
 export function Lab() {
   usePageTitle('Lab');
   const [params] = useSearchParams();
-  const [tab, setTab] = useState<Tab>(params.get('tab') === 'drill' ? 'drill' : 'live');
+  const sample = sampleOf(params.get('sample'));
+  const [tab, setTab] = useState<Tab>(params.get('tab') === 'drill' || sample ? 'drill' : 'live');
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       const next = tab === 'live' ? 'drill' : 'live';
@@ -150,7 +156,7 @@ export function Lab() {
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="lab-tabpanel">
           {tab === 'live' ? <LiveTest /> : (
             <Suspense fallback={<p className="small muted lab-drill">Loading the drill{'\u2026'}</p>}>
-              <PromptDrill />
+              <PromptDrill sample={sample} />
             </Suspense>
           )}
         </div>

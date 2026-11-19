@@ -13,7 +13,8 @@ export type RuleId =
   | 'base64-payload'
   | 'url-fragment'
   | 'image-exfiltration'
-  | 'fake-role';
+  | 'fake-role'
+  | 'ai-order';
 
 export interface Finding {
   rule: RuleId;

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { drillPayload, promptHash, readExtras } from '../_lib/cards.js';
 import { loadKeyRing, signPayload, verifySigned } from '../_lib/signing.js';
 import type { BoardEntry, RunView, SignedCard } from '../_lib/shared.js';
-import { RUN_TTL_MS, TRAP_IDS, canonicalJson, isSignedCard } from '../_lib/shared.js';
+import { RUN_TTL_MS, SAMPLE_CARD, TRAP_IDS, canonicalJson, isSignedCard } from '../_lib/shared.js';
 import { getStore, resetStoreForTests } from '../_lib/store.js';
 import { GET as boardGet, POST as boardPost } from '../board.js';
 import { GET as cardGet } from '../card.js';
@@ -234,6 +234,19 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
     expect(((await (await boardGet(req('/api/board?poker=1'))).json()) as { entries: BoardEntry[] }).entries).toEqual([]);
     const card = (await (await cardGet(req(`/api/card/${live.payload.id}`))).json()) as { listed: boolean };
     expect(card.listed).toBe(true);
+  });
+
+  it('the sample card is never Tell\u2019s: not published, not verifiable, not stored, never on the board', async () => {
+    expect(verifySigned(SAMPLE_CARD, loadKeyRing(process.env))).toBe(false);
+    const keys = (await (await keysGet(req('/keys.json'))).json()) as { keys: { kid: string }[] };
+    expect(keys.keys.map((k) => k.kid)).not.toContain('demo');
+    expect((await cardGet(req(`/api/card?id=${SAMPLE_CARD.payload.id}`))).status).toBe(404);
+    expect((await cardGet(req('/api/card?id=sample'))).status).toBe(404);
+    expect((await boardPost(post('/api/board', { cardId: SAMPLE_CARD.payload.id, name: 'Sample agent' }))).status).toBe(404);
+    // Even if it were somehow stored, the board checks the signature against Tell's own keys.
+    await (await getStore())!.createCard({ card: SAMPLE_CARD, prompt: null, runId: null, listed: false });
+    expect((await boardPost(post('/api/board', { cardId: SAMPLE_CARD.payload.id, name: 'Sample agent' }))).status).toBe(409);
+    expect(((await (await boardGet(req('/api/board?range=all'))).json()) as { entries: BoardEntry[] }).entries).toEqual([]);
   });
 
   it('a card signed with a key that has since been removed cannot join the board', async () => {

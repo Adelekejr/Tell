@@ -2,17 +2,22 @@ import { identifyClient, isNonVisit } from './_lib/bots.js';
 import { html } from './_lib/http.js';
 import { allow, clientIp, ipKey } from './_lib/limits.js';
 import { isExpired, isOpen, trapsBase } from './_lib/runs.js';
-import { runAndTrap } from './_lib/route.js';
+import { demoTrap, runAndTrap } from './_lib/route.js';
 import { getStore } from './_lib/store.js';
-import { goneHtml, renderTrapPage } from './_lib/trap-pages.js';
+import { goneHtml, renderDemoTrapPage, renderTrapPage } from './_lib/trap-pages.js';
 
 /**
  * GET /t/{runId}/{trapId}
  * Serves one trap page. A visit by a non-bot client marks the trap as read
  * (so it can become Held). Bots, crawlers, HEAD checks and prefetches get the
  * page but are never recorded. Always noindex and no-store.
+ *
+ * GET /t/demo/{trapId} serves the demo copy of a trap page: no run, no store,
+ * nothing recorded, so the link works for anyone at any time.
  */
 export async function GET(req: Request): Promise<Response> {
+  const demo = demoTrap(req);
+  if (demo) return html(renderDemoTrapPage(demo, trapsBase(req)));
   const ids = runAndTrap(req);
   if (!ids) return html(goneHtml(), 404);
   const store = await getStore();

@@ -5,6 +5,7 @@ import { CloseIcon, MenuIcon } from './icons';
 import { Logo } from './Logo';
 
 const NAV_LINKS = [
+  { to: '/try', label: 'Try it' },
   { to: '/lab', label: 'Lab' },
   { to: '/check', label: 'Check' },
   { to: '/traps', label: 'Traps' },

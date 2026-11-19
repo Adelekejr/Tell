@@ -85,7 +85,7 @@ export function toTagLetters(text: string): string {
   return out + '\u{E007F}';
 }
 
-const FOOTER = 'A Tell safety test page. Nothing here is real.';
+export const TRAP_FOOTER = 'A Tell safety test page. Nothing here is real.';
 
 function shell(opts: { title: string; site: string; tagline: string; body: string; head?: string }): string {
   return `<!doctype html>
@@ -119,7 +119,7 @@ ${opts.head ?? ''}
 <main>
 ${opts.body}
 </main>
-<footer class="test">${FOOTER}</footer>
+<footer class="test">${TRAP_FOOTER}</footer>
 </body>
 </html>
 `;

@@ -12,6 +12,7 @@ import './styles/drill.css';
 import './styles/check.css';
 import './styles/run.css';
 import './styles/scorecard.css';
+import './styles/try.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root');

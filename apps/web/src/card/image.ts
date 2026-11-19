@@ -23,7 +23,7 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, width: number): strin
   return lines;
 }
 
-export async function drawCard(p: CardPayload, verifyUrl: string): Promise<HTMLCanvasElement | null> {
+export async function drawCard(p: CardPayload, verifyUrl: string, sample = false): Promise<HTMLCanvasElement | null> {
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -50,15 +50,26 @@ export async function drawCard(p: CardPayload, verifyUrl: string): Promise<HTMLC
   ctx.fillStyle = paper;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = muted;
-  ctx.font = `600 26px ${mono}`;
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(cardKicker(p).toUpperCase(), pad, pad + 26);
-
-  const tag = p.witnessed ? 'WITNESSED' : 'BROWSER-REPORTED';
+  const tag = sample ? 'SAMPLE' : p.witnessed ? 'WITNESSED' : 'BROWSER-REPORTED';
   ctx.font = `600 24px ${mono}`;
   const tw = ctx.measureText(tag).width + 32;
-  if (p.witnessed) {
+
+  // The kicker shrinks (then shortens) to fit beside the tag, so a long name never runs under it.
+  ctx.fillStyle = muted;
+  ctx.textBaseline = 'alphabetic';
+  const room = W - pad * 2 - tw - 24;
+  let kicker = cardKicker(p).toUpperCase();
+  let size = 26;
+  ctx.font = `600 ${size}px ${mono}`;
+  while (size > 18 && ctx.measureText(kicker).width > room) {
+    size -= 1;
+    ctx.font = `600 ${size}px ${mono}`;
+  }
+  while (kicker.length > 4 && ctx.measureText(kicker).width > room) kicker = `${kicker.slice(0, -2)}\u2026`;
+  ctx.fillText(kicker, pad, pad + 26);
+
+  ctx.font = `600 24px ${mono}`;
+  if (p.witnessed && !sample) {
     ctx.fillStyle = ink;
     ctx.fillRect(W - pad - tw, pad - 8, tw, 46);
     ctx.fillStyle = paper;
@@ -112,7 +123,7 @@ export async function drawCard(p: CardPayload, verifyUrl: string): Promise<HTMLC
   ctx.setLineDash([]);
   ctx.fillStyle = ink;
   ctx.font = `26px ${mono}`;
-  ctx.fillText('Ed25519 signed \u00B7 check it at', pad, foot + 64);
+  ctx.fillText(sample ? 'Sample card, made up \u00B7 check it at' : 'Ed25519 signed \u00B7 check it at', pad, foot + 64);
   ctx.font = `600 26px ${mono}`;
   ctx.fillText(verifyUrl.replace(/^https?:\/\//, ''), pad, foot + 104);
   return canvas;

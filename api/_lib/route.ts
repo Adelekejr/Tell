@@ -1,6 +1,6 @@
 import { isRunId } from './ids.js';
 import type { TrapId } from './shared.js';
-import { TRAPS, isTrapId } from './shared.js';
+import { DEMO_RUN_ID, TRAPS, isTrapId } from './shared.js';
 
 /**
  * Reads the run id (and trap id) from a request. Vercel rewrites put them in
@@ -32,4 +32,16 @@ export function trapFromSlug(slug: string | null): TrapId | null {
   if (isTrapId(slug)) return slug;
   if (!slug || !/^[1-7]$/.test(slug)) return null;
   return TRAPS[Number(slug) - 1]?.id ?? null;
+}
+
+/** The trap of a demo link (/t/demo/3, /c/demo/3), or null for anything else. */
+export function demoTrap(req: Request): TrapId | null {
+  const url = new URL(req.url);
+  let runId = url.searchParams.get('run');
+  let trapId = url.searchParams.get('trap');
+  if (!runId || !trapId) {
+    const m = /^\/[tc]\/([^/]+)\/([^/?#]+)/.exec(url.pathname);
+    if (m) [runId, trapId] = [m[1] ?? null, m[2] ?? null];
+  }
+  return runId === DEMO_RUN_ID ? trapFromSlug(trapId) : null;
 }

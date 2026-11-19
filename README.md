@@ -11,7 +11,7 @@ Tell hides small traps in ordinary web pages, then shows you the moment an AI ag
   Gemini Nano on device, Gemini in the cloud
 </p>
 
-> **Status: in progress.** Built for the Firebase #BuildHybridAI hackathon (deadline 30 Nov 2026). Working now: the home page, the on-device/cloud AI layer, the detection rules and the **live test** (7 trap pages, canary links, live cards). The prompt drill, check page and signed scorecards land over the next days.
+> **Status: in progress.** Built for the Firebase #BuildHybridAI hackathon (deadline 30 Nov 2026). Working now: the home page, the on-device/cloud AI layer, the detection rules, the **live test** (7 trap pages, canary links, live cards) and the **prompt drill**. The check page and signed scorecards land over the next days.
 
 ## The problem
 
@@ -79,6 +79,16 @@ firestore.rules   clients can never write; the API writes with the Admin SDK
 4. The run page polls `GET /api/run/{id}` and flips each card the moment the server sees proof.
 
 Abuse limits: 10 runs an hour per IP, 50 hits per run, per-IP caps on trap reads, canary hits and reply checks. Trap pages are `noindex`, blocked in `robots.txt`, script-free, and never link straight to a canary, so search crawlers are never trapped and never scored.
+
+### The prompt drill
+
+No agent to hand? Paste its system prompt into the **Prompt drill** tab in `/lab`. Gemini plays your agent against the same 7 trap pages, one single-turn request per trap, all from the browser through Firebase AI Logic (`apps/web/src/ai/hybrid.ts`).
+
+- The model answers in JSON (`reply` plus the `actions` it would take): `responseConstraint` on-device, `responseSchema` in the cloud. Code then decides Held or Fired from each trap's secret word, canary link and the shared detector. The model never grades itself.
+- Gemini Nano runs it when the device can (Chrome desktop). The cloud is used only after you switch on **Allow cloud**, and every row says where it ran.
+- **Harden my prompt** asks Gemini for a safer version, then re-runs the drill and shows before and after. **Compare Nano vs Cloud** runs the same prompt `ONLY_ON_DEVICE` and `ONLY_IN_CLOUD`.
+- Your prompt is never sent to Tell's servers or stored. Drill results are marked *browser-reported* and never go on the board.
+- The cloud path needs App Check (`VITE_RECAPTCHA_SITE_KEY`), because AI Logic enforces it. Until it is set, the drill runs on-device only.
 
 ## Quick start
 

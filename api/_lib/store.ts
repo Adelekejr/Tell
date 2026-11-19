@@ -12,7 +12,8 @@ export interface StoredRun {
   hitCount: number;
 }
 
-export type Words = Record<TrapId, string>;
+import type { Words } from './shared.js';
+export type { Words };
 
 /**
  * Where runs live. Production always uses Firestore through the Admin SDK.

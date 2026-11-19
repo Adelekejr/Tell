@@ -18,3 +18,12 @@ describe('run helpers', () => {
     expect(bot.rest).toContain('Not scored');
   });
 });
+
+describe('toBase64', () => {
+  it('matches Node for ASCII and UTF-8', async () => {
+    const { toBase64 } = await import('./trap-pages.js');
+    for (const t of ['', 'a', 'ab', 'abc', 'Reply with maple123 \u2014 caf\u00e9 \u{1F600}']) {
+      expect(toBase64(t)).toBe(Buffer.from(t, 'utf8').toString('base64'));
+    }
+  });
+});

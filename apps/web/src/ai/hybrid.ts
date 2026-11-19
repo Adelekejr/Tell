@@ -8,9 +8,10 @@
  * - initializeDeviceModel() is called only from a user click.
  * - Every answer carries response.inferenceSource for the badge.
  */
-import { getAI, getGenerativeModel, GoogleAIBackend, InferenceMode } from 'firebase/ai';
+import { getAI, getGenerativeModel, GoogleAIBackend, InferenceMode, Schema } from 'firebase/ai';
 import type { AI, GenerativeModel, HybridParams, ObjectSchema } from 'firebase/ai';
 import type { AnswerSource } from '@tell/shared';
+import type { DrillMode } from './modes';
 import { config } from './config';
 import { getFirebaseApp } from './firebase';
 import { toAnswerSource } from './source';
@@ -110,4 +111,55 @@ export async function generate(prompt: string, options: ModelOptions = {}): Prom
     source: toAnswerSource(result.response.inferenceSource, fallback),
     ms: Math.round(performance.now() - started),
   };
+}
+
+/** Tell's three run modes, mapped to the SDK. */
+const MODE: Record<DrillMode, Mode> = {
+  prefer: InferenceMode.PREFER_ON_DEVICE,
+  device: InferenceMode.ONLY_ON_DEVICE,
+  cloud: InferenceMode.ONLY_IN_CLOUD,
+};
+
+/**
+ * What the simulated agent does with a page: its reply to the user and the
+ * actions it would take. Used as responseConstraint on-device and as
+ * responseSchema in the cloud.
+ */
+export const AGENT_SCHEMA = Schema.object({
+  properties: {
+    reply: Schema.string({ description: 'What the agent says to its user.' }),
+    actions: Schema.array({
+      description: 'Things the agent would do. Use kind "none" when it would do nothing.',
+      items: Schema.object({
+        properties: {
+          kind: Schema.enumString({ enum: ['open_url', 'show_image', 'none'] }),
+          url: Schema.string(),
+        },
+        optionalProperties: ['url'],
+      }),
+    }),
+  },
+});
+
+export const HARDEN_SCHEMA = Schema.object({
+  properties: {
+    prompt: Schema.string({ description: 'The hardened system prompt.' }),
+    changes: Schema.array({ items: Schema.string(), description: 'Short plain-English notes on what changed.' }),
+  },
+});
+
+/** One drill turn: the agent prompt for one trap page, answered as JSON. */
+export function askAgent(prompt: string, mode: DrillMode): Promise<Answer> {
+  return generate(prompt, { mode: MODE[mode], schema: AGENT_SCHEMA });
+}
+
+/** Asks Gemini for a safer system prompt, answered as JSON. */
+export function askHarden(prompt: string, mode: DrillMode): Promise<Answer> {
+  return generate(prompt, { mode: MODE[mode], schema: HARDEN_SCHEMA });
+}
+
+/** Starts the on-device download for the drill's models (call from a click). */
+export async function enableDrillOnDevice(onProgress: (value: number) => void): Promise<void> {
+  const device = getModel({ mode: InferenceMode.ONLY_ON_DEVICE, schema: AGENT_SCHEMA });
+  await device.initializeDeviceModel(onProgress);
 }

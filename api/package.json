@@ -1,0 +1,15 @@
+{
+  "name": "@tell/api",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.1"
+  }
+}

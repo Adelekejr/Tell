@@ -1,0 +1,358 @@
+/* ---------- Long pages: traps, how it works, docs ----------
+   Same rhythm as /try: heading left, body right on desktop; stacked on phones.
+   Ruled lists and hairlines, no boxes inside boxes. */
+.doc {
+  padding-top: var(--s6);
+  padding-bottom: var(--s12);
+}
+.doc-head .h1 {
+  margin-top: var(--s3);
+}
+.doc-head .lede {
+  margin-top: var(--s4);
+  max-width: 40ch;
+}
+.doc-section {
+  margin-top: var(--s12);
+  padding-inline: var(--gutter);
+  scroll-margin-top: var(--s4);
+}
+.doc-section-head .small {
+  margin-top: var(--s2);
+  max-width: 52ch;
+}
+.doc-section-body {
+  margin-top: var(--s5);
+  min-width: 0;
+}
+.prose {
+  max-width: 66ch;
+}
+.prose p + p,
+.prose p + ul,
+.prose ul + .trap-actions {
+  margin-top: var(--s4);
+}
+.prose a,
+.defs a,
+.faq a {
+  font-weight: 600;
+}
+code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+}
+
+/* On this page */
+.contents {
+  margin-top: var(--s8);
+}
+.contents ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s5);
+  margin-top: var(--s2);
+}
+.contents a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Term and meaning, ruled */
+.defs {
+  border-top: 1px solid var(--line);
+}
+.defs > div {
+  display: grid;
+  gap: 2px;
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--line);
+}
+.defs dt {
+  font-weight: 650;
+}
+.defs dd {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  max-width: 62ch;
+}
+
+/* Lists with a small mark, not bullets */
+.ticks {
+  display: grid;
+  gap: var(--s3);
+}
+.ticks li {
+  position: relative;
+  padding-left: 22px;
+  line-height: 1.5;
+}
+.ticks li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 10px;
+  height: 1.5px;
+  background: var(--text);
+}
+.two-lists {
+  display: grid;
+  gap: var(--s8);
+}
+.two-lists .h4 {
+  margin-bottom: var(--s3);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--line);
+}
+.decides-note,
+.doc-note,
+.trap-note {
+  margin-top: var(--s5);
+  max-width: 62ch;
+}
+
+/* Diagrams: an ordered flow drawn with one rule down the side. */
+.flow {
+  margin: 0 0 var(--s6);
+}
+.flow-steps {
+  position: relative;
+  margin-top: var(--s4);
+  counter-reset: flow;
+}
+.flow-steps::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 12px;
+  bottom: 12px;
+  width: 1.5px;
+  background: var(--line);
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+.flow-steps > li {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 0 0 var(--s5) 40px;
+  counter-increment: flow;
+}
+.flow-steps > li:last-child {
+  padding-bottom: 0;
+}
+.flow-steps > li::before {
+  content: counter(flow);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1.5px var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.flow-steps > li.is-tell::before {
+  content: "!";
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+.flow-who {
+  font-weight: 650;
+}
+.flow-what {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  max-width: 60ch;
+}
+.flow-code {
+  justify-self: start;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: var(--r-tag);
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+.flow-branches {
+  display: grid;
+  gap: var(--s3);
+  margin-top: var(--s2);
+  padding-left: var(--s4);
+  border-left: 1px dashed color-mix(in srgb, var(--text) 30%, transparent);
+}
+.flow-branch {
+  display: grid;
+  gap: 4px;
+}
+.flow-branch .source-badge {
+  justify-self: start;
+}
+
+/* Numbered how-to steps */
+.doc-steps {
+  border-top: 1px solid var(--line);
+}
+.doc-steps li {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: var(--s2);
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.5;
+}
+.doc-step-n {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-style: italic;
+  line-height: 0.9;
+}
+
+/* Code scrolls inside its box, never the page. */
+.code {
+  margin-top: var(--s4);
+  padding: var(--s4);
+  overflow-x: auto;
+  border-radius: var(--r-ctl);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre;
+  scrollbar-color: color-mix(in srgb, var(--paper) 30%, transparent) transparent;
+}
+.code code {
+  font-size: inherit;
+  overflow-wrap: normal;
+}
+.code:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* FAQ */
+.faq {
+  border-top: 1px solid var(--line);
+}
+.faq details {
+  border-bottom: 1px solid var(--line);
+}
+.faq summary {
+  padding: var(--s3) 0;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.faq details p {
+  padding: 0 0 var(--s4) 16px;
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+}
+.doc-actions,
+.trap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: var(--s6);
+}
+.doc-actions .btn {
+  width: auto;
+  min-width: 220px;
+}
+.trap-actions {
+  margin-top: var(--s5);
+}
+.trap-actions .btn svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* Trap pages */
+.trap-detail .doc-head .lede {
+  max-width: 36ch;
+}
+.fix-lead {
+  font-size: var(--fs-lede);
+  line-height: 1.45;
+  margin-bottom: var(--s4);
+}
+.trap-index-name {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+.trap-pager {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: var(--s3);
+  margin-top: var(--s12);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+}
+.pager-link {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-height: 44px;
+  color: var(--text);
+  text-decoration: none;
+}
+.pager-link:hover .pager-name {
+  text-decoration: underline;
+}
+.pager-next {
+  text-align: right;
+}
+.pager-all {
+  align-self: center;
+}
+.pager-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.05;
+}
+
+@media (min-width: 720px) {
+  .two-lists {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 960px) {
+  .doc-head {
+    padding-bottom: var(--s12);
+  }
+  .doc-section {
+    margin-top: 0;
+    padding-top: 64px;
+    padding-bottom: 64px;
+    border-top: 1px solid var(--line);
+  }
+  .doc-section-head {
+    grid-column: 1 / 4;
+  }
+  .doc-section-body {
+    grid-column: 4 / 13;
+    margin-top: 0;
+  }
+  .trap-pager {
+    margin-top: 0;
+  }
+}

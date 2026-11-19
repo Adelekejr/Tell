@@ -13,6 +13,7 @@ import './styles/check.css';
 import './styles/run.css';
 import './styles/scorecard.css';
 import './styles/try.css';
+import './styles/docs.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root');

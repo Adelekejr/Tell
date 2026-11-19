@@ -48,7 +48,7 @@ describe('Home', () => {
 });
 
 describe('routes', () => {
-  it.each(['/lab', '/run/abc', '/card/xyz', '/check', '/board', '/traps', '/how', '/docs', '/device'])(
+  it.each(['/lab', '/run/abc', '/card/xyz', '/check', '/board', '/traps', '/traps/whisper', '/how', '/docs', '/device'])(
     '%s renders inside the shared layout',
     (path) => {
       renderAt(path);

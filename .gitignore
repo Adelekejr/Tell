@@ -1,0 +1,23 @@
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+.DS_Store
+
+# Secrets never go in the repo
+.env
+.env.*
+!.env.example
+*.pem
+service-account*.json
+*-firebase-adminsdk-*.json
+
+# Tooling
+.vercel/
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+playwright-report/
+test-results/

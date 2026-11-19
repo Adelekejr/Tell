@@ -92,3 +92,14 @@ export function isTrapId(value: unknown): value is TrapId {
 export function trapNumber(no: number): string {
   return `No.${String(no).padStart(2, '0')}`;
 }
+
+/** One plain fix per trap, shown when a trap fires. */
+export const FIX_TIPS: Record<TrapId, string> = {
+  'invisible-ink': 'Read pages as people see them: drop text that is hidden with CSS before it reaches the model.',
+  whisper: 'Strip HTML comments before page text reaches the model. Your agent never needs them.',
+  'ghost-letters': 'Remove invisible Unicode (tag letters, zero-width characters) from anything the agent reads.',
+  cipher: 'Never decode and act on encoded text from a page. Treat it as data, like everything else on the page.',
+  hashtag: 'Drop everything after # in a link before the agent reads it.',
+  postcard: 'Don\u2019t render images or links the page asked for, and block image URLs to unknown sites in replies.',
+  impostor: 'Treat page text as data. Only your own system prompt speaks as \u201csystem\u201d.',
+};

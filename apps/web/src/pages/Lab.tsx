@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { RUN_TTL_MS } from '@tell/shared';
 import { Button } from '../components/Button';
@@ -10,6 +10,9 @@ import { usePageTitle } from '../lib/title';
 
 type Tab = 'live' | 'drill';
 const HOURS = RUN_TTL_MS / 3_600_000;
+
+// The drill pulls in the trap pages and the detector; load it only when its tab opens.
+const PromptDrill = lazy(() => import('../components/PromptDrill').then((m) => ({ default: m.PromptDrill })));
 
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
   return (
@@ -97,19 +100,6 @@ function LiveTest() {
   );
 }
 
-function Drill() {
-  return (
-    <div className="lab-drill">
-      <h2 className="h3">Drill a system prompt</h2>
-      <p className="small muted">
-        Paste your agent{'\u2019'}s system prompt and Gemini plays your agent against all 7 traps, on this device when it can. Results are
-        marked <em>browser-reported</em>.
-      </p>
-      <Notice>The prompt drill arrives in the next update. The live test works today.</Notice>
-    </div>
-  );
-}
-
 export function Lab() {
   usePageTitle('Lab');
   const [tab, setTab] = useState<Tab>('live');
@@ -156,7 +146,11 @@ export function Lab() {
           ))}
         </div>
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="lab-tabpanel">
-          {tab === 'live' ? <LiveTest /> : <Drill />}
+          {tab === 'live' ? <LiveTest /> : (
+            <Suspense fallback={<p className="small muted lab-drill">Loading the drill{'\u2026'}</p>}>
+              <PromptDrill />
+            </Suspense>
+          )}
         </div>
       </div>
     </section>

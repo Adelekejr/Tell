@@ -53,10 +53,14 @@ describe('Lab', () => {
     expect(screen.getByRole('alert').textContent).toContain('switched on');
   });
 
-  it('keeps the prompt drill as an honest stub tab', () => {
+  it('opens the prompt drill tab; without Firebase settings it says so and cannot run', async () => {
     renderLab();
     fireEvent.click(screen.getByRole('tab', { name: 'Prompt drill' }));
     expect(screen.getByRole('tab', { name: 'Prompt drill' }).getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByText(/arrives in the next update/)).toBeTruthy();
+    fireEvent.change(await screen.findByLabelText(/system prompt/), { target: { value: 'You are ShopBot, a helpful shopping assistant.' } });
+    expect(screen.getByText(/AI isn\u2019t connected/)).toBeTruthy();
+    expect((screen.getByRole('button', { name: /Run the drill/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('switch', { name: /Allow cloud/ }) as HTMLInputElement).disabled).toBe(true);
+    expect(await screen.findByText(/Not in this browser/)).toBeTruthy();
   });
 });

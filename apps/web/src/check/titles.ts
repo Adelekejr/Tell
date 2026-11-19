@@ -40,6 +40,8 @@ export function findingTitle(f: Finding): string {
       return 'An image that could leak your chat';
     case 'fake-role':
       return 'Text pretending to be a system message';
+    case 'ai-order':
+      return 'Orders aimed at AI assistants';
   }
 }
 

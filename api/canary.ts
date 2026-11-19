@@ -2,7 +2,7 @@ import { isNonVisit } from './_lib/bots.js';
 import { NOINDEX_HEADERS } from './_lib/http.js';
 import { allow, clientIp, ipKey } from './_lib/limits.js';
 import { recordCanary } from './_lib/runs.js';
-import { runAndTrap } from './_lib/route.js';
+import { demoTrap, runAndTrap } from './_lib/route.js';
 import { getStore } from './_lib/store.js';
 
 // A 1x1 transparent GIF, so The Postcard's "tracking image" loads quietly.
@@ -24,9 +24,12 @@ function reply(req: Request, trap: string | null): Response {
  * GET /c/{runId}/{trapId}?w={word}&d={data}
  * The canary. Code decides the proof level (see classifyCanary). Only the
  * length of any `d` data is stored, never the data. Expired or finished runs,
- * the 50-hit cap and per-IP limits all drop the hit silently.
+ * the 50-hit cap and per-IP limits all drop the hit silently. Demo canaries
+ * (/c/demo/{trap}) answer the same way and record nothing.
  */
 export async function GET(req: Request): Promise<Response> {
+  const demo = demoTrap(req);
+  if (demo) return reply(req, demo);
   const ids = runAndTrap(req);
   if (!ids) return reply(req, null);
   if (isNonVisit(req)) return reply(req, ids.trapId);

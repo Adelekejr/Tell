@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import type { FormEvent } from 'react';
 import type { AnswerSource } from '@tell/shared';
 import { isConfigured } from '../ai/config';
@@ -10,6 +11,8 @@ import type * as Hybrid from '../ai/hybrid';
 import type { CheckView } from '../check/analyse';
 import { analyseHtml, analyseText } from '../check/analyse';
 import { EXAMPLE_HTML, EXAMPLE_URL } from '../check/example';
+import type { CheckExample } from '../check/examples';
+import { exampleMeta, findExample } from '../check/examples';
 import type { Explanation } from '../check/explain';
 import { MAX_EXPLAINED, buildExplainPrompt, parseExplanation } from '../check/explain';
 import { MAX_TEXT, asLink, hostOf } from '../check/input';
@@ -55,7 +58,7 @@ function Verdict({ view }: { view: CheckView }) {
           <p className="check-verdict-head">
             {n} hidden {n === 1 ? 'line' : 'lines'} found.
           </p>
-          <p className="check-verdict-sub">You can{'\u2019'}t see {n === 1 ? 'it' : 'them'}. An AI reading this {view.source === 'text' ? 'text' : 'page'} can.</p>
+          <p className="check-verdict-sub">You can{'\u2019'}t see {n === 1 ? 'it' : 'them'}. An AI reading this {view.source === 'text' || !view.url ? 'text' : 'page'} can.</p>
         </div>
       </div>
     );
@@ -93,11 +96,17 @@ function Verdict({ view }: { view: CheckView }) {
  */
 export function Check() {
   usePageTitle('Check a page');
-  const [input, setInput] = useState('');
+  const [params] = useSearchParams();
+  // /check?example=white-text opens straight onto that example's result (one tap from the Try it section).
+  const [opening] = useState<{ example: CheckExample; view: CheckView } | null>(() => {
+    const example = findExample(params.get('example'));
+    return example ? { example, view: example.run() } : null;
+  });
+  const [input, setInput] = useState(() => opening?.example.input ?? '');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<CheckView | null>(null);
-  const [meta, setMeta] = useState<string | null>(null);
+  const [view, setView] = useState<CheckView | null>(() => opening?.view ?? null);
+  const [meta, setMeta] = useState<string | null>(() => (opening ? exampleMeta(opening.example) : null));
   const [allowCloud, setAllowCloud] = useState(false);
   const [device, setDevice] = useState<DeviceAvailability | null>(null);
   const [explain, setExplain] = useState<Explain>({ status: 'idle' });
@@ -106,20 +115,12 @@ export function Check() {
   const seq = useRef(0);
   const [runKey, setRunKey] = useState(0);
 
-  useEffect(() => {
-    let live = true;
-    void checkDeviceAvailability().then((d) => live && setDevice(d));
-    return () => {
-      live = false;
-    };
-  }, []);
-
   const cloudOk = cloudReady();
-  /** Pasted text needs the switch for the cloud; a public page doesn't. */
-  const engineFor = (v: CheckView, cloud = allowCloud) => pickEngine(v.source === 'text' ? cloud : true, device, cloudOk);
+  /** Pasted text needs the switch for the cloud; a public page or a made-up example doesn't. */
+  const engineFor = (v: CheckView, cloud = allowCloud, dev = device) => pickEngine(v.source === 'text' ? cloud : true, dev, cloudOk);
 
-  async function runExplain(v: CheckView, cloud = allowCloud) {
-    const engine = engineFor(v, cloud);
+  async function runExplain(v: CheckView, cloud = allowCloud, dev = device) {
+    const engine = engineFor(v, cloud, dev);
     if (!engine.mode || !v.findings.length) return;
     const id = seq.current;
     setExplain({ status: 'running' });
@@ -133,6 +134,27 @@ export function Check() {
       if (id === seq.current) setExplain({ status: 'failed', problem: classifyAiError(e) });
     }
   }
+
+  // An example opened from a link is explained once this device's AI is known; with no AI it stays rules-only.
+  const explainOpening = useEffectEvent((d: DeviceAvailability) => {
+    if (opening && seq.current === 0) void runExplain(opening.view, false, d);
+  });
+
+  useEffect(() => {
+    let live = true;
+    void checkDeviceAvailability().then((d) => {
+      if (!live) return;
+      setDevice(d);
+      explainOpening(d);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (opening) requestAnimationFrame(() => result.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
+  }, [opening]);
 
   function show(v: CheckView, about: string | null) {
     seq.current += 1;
@@ -232,6 +254,9 @@ export function Check() {
           <button type="button" className="linkish" onClick={tryExample}>
             Try an example
           </button>
+          <Link to="/try" className="linkish small">
+            More examples
+          </Link>
         </div>
       </form>
 

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TrapId } from '@tell/shared';
-import { FIX_TIPS, TRAPS, getTrap } from '@tell/shared';
+import { FIX_TIPS, SAMPLE_STRONG_PROMPT, SAMPLE_WEAK_PROMPT, TRAPS, getTrap } from '@tell/shared';
 import { isConfigured } from '../ai/config';
 import type { AiProblem, DrillMode } from '../ai/modes';
 import { PROBLEM_TEXT, classifyAiError } from '../ai/modes';
+import { checkPrompt } from '../drill/checklist';
 import { DEVICE_TEXT, cloudReady, pickEngine } from '../drill/engine';
 import { checkDeviceAvailability } from '../ai/source';
 import type { DeviceAvailability } from '../ai/source';
@@ -18,6 +19,7 @@ import { Button } from './Button';
 import { DrillSheet } from './DrillSheet';
 import { Textarea } from './Field';
 import { Notice } from './Notice';
+import { PromptChecklist } from './PromptChecklist';
 import { SignCard } from './SignCard';
 
 type HybridModule = typeof Hybrid;
@@ -29,6 +31,13 @@ const loadHybrid = (() => {
   let p: Promise<HybridModule> | null = null;
   return () => (p ??= import('../ai/hybrid'));
 })();
+
+export type SampleId = 'weak' | 'strong';
+
+const SAMPLES: Record<SampleId, { label: string; prompt: string }> = {
+  weak: { label: 'Weak prompt', prompt: SAMPLE_WEAK_PROMPT },
+  strong: { label: 'Strong prompt', prompt: SAMPLE_STRONG_PROMPT },
+};
 
 type Phase = { kind: 'idle' } | { kind: 'running'; label: string; partial: DrillTrapResult[] } | { kind: 'done' };
 
@@ -61,8 +70,8 @@ function FixTips({ fallen }: { fallen: readonly TrapId[] }) {
  * entirely in the browser. Code decides held or fired. Nothing is stored and
  * the prompt never reaches Tell's servers.
  */
-export function PromptDrill() {
-  const [prompt, setPrompt] = useState('');
+export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
+  const [prompt, setPrompt] = useState(() => (sample ? SAMPLES[sample].prompt : ''));
   const [allowCloud, setAllowCloud] = useState(false);
   const [device, setDevice] = useState<DeviceAvailability | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
@@ -91,6 +100,8 @@ export function PromptDrill() {
   const engine = pickEngine(allowCloud, device, cloudOk);
   const busy = phase.kind === 'running' || hardening;
   const trimmed = prompt.trim();
+  const checklist = trimmed.length >= 20 ? checkPrompt(trimmed) : null;
+  const sampleOn = (Object.keys(SAMPLES) as SampleId[]).find((id) => SAMPLES[id].prompt === prompt) ?? null;
   const canRun = engine.mode !== null && trimmed.length >= 20 && !busy;
   const canCompare = device === 'available' && cloudOk && allowCloud;
   const deviceCanEnable = isConfigured && (device === 'downloadable' || device === 'downloading');
@@ -201,6 +212,15 @@ export function PromptDrill() {
         </p>
       </div>
 
+      <div className="drill-samples" role="group" aria-label="Sample prompts">
+        <span className="small muted">No prompt handy? Try a made-up one:</span>
+        {(Object.keys(SAMPLES) as SampleId[]).map((id) => (
+          <button key={id} type="button" className="chip" aria-pressed={sampleOn === id} disabled={busy} onClick={() => setPrompt(SAMPLES[id].prompt)}>
+            {SAMPLES[id].label}
+          </button>
+        ))}
+      </div>
+
       <Textarea
         label={'Your agent\u2019s system prompt'}
         mono
@@ -212,6 +232,8 @@ export function PromptDrill() {
         hint={`${prompt.length} / ${MAX_SYSTEM_PROMPT} \u00B7 Stays in this browser. Tell never stores or receives it.`}
         disabled={busy}
       />
+
+      {checklist ? <PromptChecklist list={checklist} /> : null}
 
       <div className="drill-engines">
         <div className="drill-engine">

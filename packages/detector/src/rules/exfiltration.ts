@@ -33,10 +33,12 @@ export function exfiltrationRule(images: readonly ImageRef[]): Finding[] {
     const decodedUrl = safeDecodeURIComponent(img.url);
     const params = queryParams(img.url);
     const afterHost = decodedUrl.replace(/^https?:\/\/[^/?#]+/i, '');
-    const hasPlaceholder = PLACEHOLDER.test(afterHost);
+    // A bare ALL-CAPS value (d=SUMMARY) is a fill-in slot when the text around it gives orders.
+    const capsSlot = params.some((p) => /^[A-Z][A-Z0-9_]{3,40}$/.test(p.value));
+    const ordered = isInstructionLike(img.context);
+    const hasPlaceholder = PLACEHOLDER.test(afterHost) || (ordered && capsSlot);
     const sensitive = params.find((p) => SENSITIVE_PARAM.test(p.name) && p.value.length >= 12);
     const longValue = params.find((p) => !SIGNATURE_PARAM.test(p.name) && p.value.length >= 64);
-    const ordered = isInstructionLike(img.context);
 
     if (hasPlaceholder || (ordered && (sensitive || longValue))) {
       findings.push({

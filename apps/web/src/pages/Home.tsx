@@ -2,6 +2,7 @@ import { TRAPS, CLOUD_MODEL, trapNumber } from '@tell/shared';
 import { InferenceBadge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Fan } from '../components/Fan';
+import { TryItStrip } from '../components/TryIt';
 import { usePageTitle } from '../lib/title';
 
 const STEPS = [
@@ -47,6 +48,8 @@ export function Home() {
           Check a page
         </Button>
       </div>
+
+      <TryItStrip />
 
       <section className="steps" aria-labelledby="steps-title">
         <h2 className="label" id="steps-title">

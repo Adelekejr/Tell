@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { SignedCard } from '@tell/shared';
-import { canonicalJson } from '@tell/shared';
+import { CARD_ID_RE, canonicalJson } from '@tell/shared';
+import { isSampleSlug, slugOf } from '../card/sample';
 import { cardDate, gradeLabel } from '../card/text';
 import type { Check } from '../card/useVerifiedCard';
 import { checkCard, useVerifiedCard } from '../card/useVerifiedCard';
@@ -41,14 +42,17 @@ function Result({ card, check }: { card: SignedCard | null; check: Check }) {
   const v = check.verdict;
   const ok = v.status === 'valid';
   const p = card && ok ? card.payload : null;
+  const sample = v.status === 'valid' && v.keySource === 'sample';
   return (
     <div aria-live="polite">
       <div className={`verify-verdict ${ok ? 'is-valid' : 'is-invalid'}`} role="status">
         {ok ? <HeldIcon /> : <AlertIcon />}
         <div>
-          <p className="h2">{ok ? 'Signature valid.' : 'Signature not valid.'}</p>
+          <p className="h2">{sample ? 'Valid sample.' : ok ? 'Signature valid.' : 'Signature not valid.'}</p>
           <p className="small">
-            {ok
+            {sample
+              ? 'The signature checks out, and it was made with Tell\u2019s demo key. That key signed only this made-up sample, so it shows how checking works. It isn\u2019t a test result.'
+              : ok
               ? 'Tell signed exactly this card, and nothing on it has changed since. Checked in this browser.'
               : WHY[(v as Exclude<Verdict, { status: 'valid' }>).reason]}
           </p>
@@ -57,19 +61,29 @@ function Result({ card, check }: { card: SignedCard | null; check: Check }) {
       {p && card && v.status === 'valid' ? (
         <dl className="verify-facts">
           <Row k="Card">
-            <Link to={cardPath(p.id)} className="mono">
-              {p.id}
+            <Link to={cardPath(slugOf(card))} className="mono">
+              {sample ? 'Sample card' : p.id}
             </Link>
           </Row>
           <Row k="Result">
             {gradeLabel(p)} {'\u00B7'} {p.score.held} of {p.score.tested} held
           </Row>
-          <Row k="Kind">{p.witnessed ? 'Live test, witnessed by Tell\u2019s server' : 'Prompt drill, browser-reported'}</Row>
-          <Row k="Signed">{cardDate(p.issuedAt)}</Row>
+          <Row k="Kind">
+            {sample
+              ? 'Sample, made up (shaped like a live test card)'
+              : p.witnessed
+                ? 'Live test, witnessed by Tell\u2019s server'
+                : 'Prompt drill, browser-reported'}
+          </Row>
+          {sample ? null : <Row k="Signed">{cardDate(p.issuedAt)}</Row>}
           <Row k="Key">
             <span className="mono">Ed25519 {'\u00B7'} {v.kid}</span>{' '}
             <span className="muted">
-              {v.keySource === 'pinned' ? '(pinned in Tell\u2019s open-source code)' : '(published by Tell at /keys.json)'}
+              {v.keySource === 'sample'
+                ? '(demo key, built into Tell\u2019s code; it signed only this sample)'
+                : v.keySource === 'pinned'
+                  ? '(pinned in Tell\u2019s open-source code)'
+                  : '(published by Tell at /keys.json)'}
             </span>
           </Row>
           <Row k="Checked with">{v.engine === 'web-crypto' ? 'Web Crypto, built into this browser' : '@noble/ed25519, running in this browser'}</Row>
@@ -148,7 +162,7 @@ function Explainer() {
         A <b>witnessed</b> card comes from a live test: Tell{'\u2019'}s server saw each trap page being read and each canary link being
         hit, and built the card from its own records. A <b>browser-reported</b> card comes from a prompt drill that ran in someone{'\u2019'}s
         browser. Tell signs what that browser reported, so the signature proves the card wasn{'\u2019'}t edited, not that Tell watched it.
-        Only witnessed cards can join the board.
+        Only witnessed cards can join the board. A <b>sample</b> card is made up and signed with a demo key that signed nothing else; it never joins the board either.
       </p>
     </div>
   );
@@ -167,7 +181,7 @@ function ById({ id }: { id: string }) {
 export function Verify() {
   const { id } = useParams();
   usePageTitle('Verify');
-  const valid = id && /^[a-z2-7]{16}$/.test(id) ? id : null;
+  const valid = id && (CARD_ID_RE.test(id) || isSampleSlug(id)) ? id : null;
   return (
     <section className="verify wrap">
       <p className="label">Verify a scorecard</p>

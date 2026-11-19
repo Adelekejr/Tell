@@ -4,6 +4,11 @@
  *
  *   node scripts/new-signing-key.mjs        # key version 1 -> TELL_SIGNING_KEY_V1
  *   node scripts/new-signing-key.mjs 2      # a rotation    -> TELL_SIGNING_KEY_V2
+ *   node scripts/new-signing-key.mjs --value-file
+ *       also writes .secrets/tell-signing-key-v<n>.value holding only the
+ *       value, for tools that read a variable's value from a file
+ *       (`vercel env add NAME production < file`, or an upload by file path)
+ *       so the key is never shown on screen or typed anywhere.
  *
  * The private key is written ONLY to .secrets/tell-signing-key-v<n>.env
  * (gitignored, readable only by you). Nothing secret is printed. Copy the
@@ -15,7 +20,9 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const version = Number(process.argv[2] ?? '1');
+const args = process.argv.slice(2);
+const valueFile = args.includes('--value-file');
+const version = Number(args.find((a) => !a.startsWith('--')) ?? '1');
 if (!Number.isInteger(version) || version < 1 || version > 999) {
   console.error('Key version must be a whole number from 1 to 999.');
   process.exit(1);
@@ -24,9 +31,12 @@ if (!Number.isInteger(version) || version < 1 || version > 999) {
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, '.secrets');
 const file = join(dir, `tell-signing-key-v${version}.env`);
-if (existsSync(file)) {
-  console.error(`${relative(process.cwd(), file)} already exists. Not overwriting it.`);
-  process.exit(1);
+const valuePath = join(dir, `tell-signing-key-v${version}.value`);
+for (const f of valueFile ? [file, valuePath] : [file]) {
+  if (existsSync(f)) {
+    console.error(`${relative(process.cwd(), f)} already exists. Not overwriting it.`);
+    process.exit(1);
+  }
 }
 
 const { privateKey, publicKey } = generateKeyPairSync('ed25519');
@@ -46,5 +56,8 @@ writeFileSync(
   { mode: 0o600, flag: 'wx' },
 );
 
+if (valueFile) writeFileSync(valuePath, secret, { mode: 0o600, flag: 'wx' });
+
 console.log(`Wrote ${relative(process.cwd(), file)} (gitignored, only you can read it).`);
-console.log(`Next: add TELL_SIGNING_KEY_V${version} to Vercel from that file, redeploy, then delete the file.`);
+if (valueFile) console.log(`Wrote ${relative(process.cwd(), valuePath)} too: the value alone, for uploading from a file.`);
+console.log(`Next: add TELL_SIGNING_KEY_V${version} to Vercel from that file, redeploy, then delete the .secrets folder.`);

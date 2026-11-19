@@ -7,3 +7,5 @@ export * from './reply.js';
 export * from './bytes.js';
 export * from './scorecard.js';
 export * from './board.js';
+export * from './demo.js';
+export * from './samples.js';

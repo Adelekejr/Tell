@@ -2,8 +2,9 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useParams } from 'react-router';
 import type { CardPayload, SignedCard } from '@tell/shared';
-import { FIX_TIPS, checkAgentName } from '@tell/shared';
+import { FIX_TIPS, checkAgentName, isSampleCard } from '@tell/shared';
 import { drawCard, toPngBlob } from '../card/image';
+import { slugOf } from '../card/sample';
 import { cardDate, gradeLabel, shortUrl, siteUrl, trapName } from '../card/text';
 import { useVerifiedCard } from '../card/useVerifiedCard';
 import { Button } from '../components/Button';
@@ -35,10 +36,13 @@ function CopyLink({ url }: { url: string }) {
 
 async function share(card: SignedCard, url: string): Promise<'shared' | 'copied' | 'failed'> {
   const p = card.payload;
-  const text = `${gradeLabel(p)}: ${p.score.held} of ${p.score.tested} traps held. Check the signature yourself.`;
+  const sample = isSampleCard(card);
+  const text = sample
+    ? 'A sample Tell scorecard. Check its signature yourself, then test your own agent.'
+    : `${gradeLabel(p)}: ${p.score.held} of ${p.score.tested} traps held. Check the signature yourself.`;
   try {
     if (navigator.share) {
-      const canvas = await drawCard(p, url);
+      const canvas = await drawCard(p, url, sample);
       const blob = canvas ? await toPngBlob(canvas) : null;
       const file = blob ? new File([blob], `tell-card-${p.id}.png`, { type: 'image/png' }) : null;
       const data: ShareData = file && navigator.canShare?.({ files: [file] }) ? { title: 'Tell scorecard', text, url, files: [file] } : { title: 'Tell scorecard', text, url };
@@ -51,8 +55,8 @@ async function share(card: SignedCard, url: string): Promise<'shared' | 'copied'
   return (await copyText(url)) ? 'copied' : 'failed';
 }
 
-async function saveImage(p: CardPayload, url: string): Promise<boolean> {
-  const canvas = await drawCard(p, url);
+async function saveImage(p: CardPayload, url: string, sample = false): Promise<boolean> {
+  const canvas = await drawCard(p, url, sample);
   if (!canvas) return false;
   const a = document.createElement('a');
   a.href = canvas.toDataURL('image/png');
@@ -137,16 +141,25 @@ export function Scorecard() {
   const { record, check } = load;
   const card = record.card;
   const p = card.payload;
-  const vUrl = siteUrl(verifyPath(p.id));
+  const sample = isSampleCard(card);
+  const vUrl = siteUrl(verifyPath(slugOf(card)));
   const fallen = p.traps.filter((t) => t.result === 'fired');
   const listed = record.listed || listedNow;
 
   return (
     <section className="card-page">
+      {sample ? (
+        <div className="card-sample wrap">
+          <Notice>
+            <strong>This is a sample card.</strong> It{'\u2019'}s made up, to show what a scorecard looks like. No agent was tested,
+            and samples never go on the board.
+          </Notice>
+        </div>
+      ) : null}
       <div className="card-wrap">
         <ScoreSheet payload={p} kid={card.kid} check={check} />
         <p className="small muted card-date">
-          Signed {cardDate(p.issuedAt)}
+          {sample ? 'Sample \u00B7 signed with Tell\u2019s demo key' : `Signed ${cardDate(p.issuedAt)}`}
           {p.run ? ` \u00B7 run ${p.run}` : ''}
         </p>
       </div>
@@ -193,7 +206,11 @@ export function Scorecard() {
             <ShareIcon />
             Share card
           </button>
-          {p.kind === 'live' ? (
+          {sample ? (
+            <Button to={verifyPath(slugOf(card))} variant="ghost" size="sm">
+              Check its signature
+            </Button>
+          ) : p.kind === 'live' ? (
             listed ? (
               <Button to="/board" variant="ghost" size="sm">
                 On the board
@@ -204,7 +221,7 @@ export function Scorecard() {
               </button>
             )
           ) : (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => void saveImage(p, vUrl)}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => void saveImage(p, vUrl, sample)}>
               Save image
             </button>
           )}
@@ -214,13 +231,15 @@ export function Scorecard() {
             {shareNote}
           </p>
         ) : null}
-        {boardOpen && !listed && p.kind === 'live' ? <BoardForm card={card} onAdded={() => setListedNow(true)} /> : null}
+        {boardOpen && !listed && !sample && p.kind === 'live' ? <BoardForm card={card} onAdded={() => setListedNow(true)} /> : null}
         <p className="small muted card-note">
-          Anyone can check this card wasn{'\u2019'}t edited. Only live-tested cards can join the board.
+          {sample
+            ? 'Anyone can check a card the same way. To get a real one, run a live test in the Lab.'
+            : 'Anyone can check this card wasn\u2019t edited. Only live-tested cards can join the board.'}
           {p.kind === 'live' ? (
             <>
               {' '}
-              <button type="button" className="linkish small" onClick={() => void saveImage(p, vUrl)}>
+              <button type="button" className="linkish small" onClick={() => void saveImage(p, vUrl, sample)}>
                 Save the card as an image
               </button>
             </>

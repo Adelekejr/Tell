@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { SignedCard } from '@tell/shared';
 import type { CardRecord } from '../lib/api';
+import { isSampleSlug, sampleRecord } from './sample';
 import { ApiError, getCard, getPublishedKeys } from '../lib/api';
 import type { KeyedInfo, Verdict } from './verify';
 import { mergeKeys, promptMatches, verifyCard } from './verify';
@@ -28,14 +29,19 @@ export async function checkCard(card: unknown, prompt: string | null): Promise<{
   return { verdict, promptOk };
 }
 
-/** Loads a card from Tell's API, then checks its signature in this browser. */
+/** The sample card ships with the app; every other card comes from Tell's API. */
+function fetchRecord(id: string, signal: AbortSignal): Promise<CardRecord> {
+  return isSampleSlug(id) ? Promise.resolve(sampleRecord()) : getCard(id, signal);
+}
+
+/** Loads a card, then checks its signature in this browser. */
 export function useVerifiedCard(id: string): CardLoad {
   const [state, setState] = useState<{ id: string; load: CardLoad }>({ id, load: { status: 'loading' } });
 
   useEffect(() => {
     let live = true;
     const ctrl = new AbortController();
-    getCard(id, ctrl.signal)
+    fetchRecord(id, ctrl.signal)
       .then(async (record) => {
         if (!live) return;
         setState({ id, load: { status: 'ready', record, check: { status: 'checking' } } });

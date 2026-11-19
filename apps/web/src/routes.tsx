@@ -8,6 +8,7 @@ import { Check } from './pages/Check';
 import { Board } from './pages/Board';
 import { Scorecard } from './pages/Scorecard';
 import { Verify } from './pages/Verify';
+import { Try } from './pages/Try';
 import { Docs, How, NotFound, Traps } from './pages/stubs';
 
 export const routes: RouteObject[] = [
@@ -21,6 +22,7 @@ export const routes: RouteObject[] = [
       { path: 'v/:id', element: <Verify /> },
       { path: 'verify', element: <Verify /> },
       { path: 'check', element: <Check /> },
+      { path: 'try', element: <Try /> },
       { path: 'board', element: <Board /> },
       { path: 'traps', element: <Traps /> },
       { path: 'how', element: <How /> },

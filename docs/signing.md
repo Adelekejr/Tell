@@ -21,11 +21,25 @@ The signed message is the text `tell-card-v1`, a newline, then the card payload 
 4. Redeploy. Check `/api/health` shows `"signingKey": "ok (k1)"` and `/keys.json` lists `k1`.
 5. Delete the file once the key is in Vercel. Never paste the private key into a chat, issue or commit.
 
+### No computer? (phone only)
+
+The key must be made on a machine you control, but it doesn't have to be yours to hold. Whoever runs your build machine can do it there, with your go-ahead, without the key ever appearing on a screen or in a chat:
+
+1. On that machine, in the repo: `pnpm signing-key --value-file`. Besides the `.env` file it writes `.secrets/tell-signing-key-v1.value`, holding only the value.
+2. Add it to Vercel straight from that file: `vercel env add TELL_SIGNING_KEY_V1 production --sensitive < .secrets/tell-signing-key-v1.value` (and again for `preview`), or with a tool that uploads a variable's value from a file path. Nobody reads or types the key.
+3. Redeploy, check `/api/health` and `/keys.json` from your phone's browser, then delete the `.secrets` folder on that machine.
+
+The Firestore rules and the board index can also be set from a phone: in the Firebase console, open Firestore → Rules, paste the contents of `firestore.rules` and publish; then Firestore → Indexes → add a composite index on the `board` collection with `hidden` ascending and `at` descending.
+
 The public key (in the file's comments and at `/keys.json`) is safe to share. It can be pinned in `PINNED_KEYS` in `packages/shared/src/scorecard.ts`, so the verify page trusts it even if `/keys.json` were changed.
 
 ### Rotate
 
 Run `pnpm signing-key` again (it writes `v2`), add `TELL_SIGNING_KEY_V2` the same way, keep `V1` configured, and redeploy. New cards are signed with `k2`; `k1` cards still verify.
+
+## The sample card
+
+The "Try it" section shows a made-up sample card at `/card/sample`. It is signed with a separate demo key (`kid: demo`) whose private half was thrown away the moment the card was signed (`scripts/make-sample-card.mjs`), so it can never sign anything else. The demo public key ships in the app, not in `/keys.json`; the server doesn't know it, so the sample can't be stored, served by the API or added to the board. The verify page calls it a sample, never a test result.
 
 ## Board storage
 

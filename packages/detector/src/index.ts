@@ -2,6 +2,7 @@ import { parseHtml } from './html.js';
 import { base64Rule } from './rules/base64.js';
 import { exfiltrationRule, findMarkdownImages } from './rules/exfiltration.js';
 import type { ImageRef } from './rules/exfiltration.js';
+import { aiOrderRule } from './rules/ai-order.js';
 import { fakeRoleRule } from './rules/fake-role.js';
 import { fragmentRule } from './rules/fragment.js';
 import { hiddenCssRule } from './rules/hidden-css.js';
@@ -28,6 +29,7 @@ export function scan(input: ScanInput | string): ScanResult {
   const { html, text, url } = typeof input === 'string' ? { text: input, html: undefined, url: undefined } : input;
   const findings: Finding[] = [];
   const corpus: string[] = [];
+  const visible: string[] = [];
   const urls: string[] = [];
   const images: ImageRef[] = [];
 
@@ -36,6 +38,7 @@ export function scan(input: ScanInput | string): ScanResult {
     findings.push(...hiddenCssRule(parsed));
     findings.push(...htmlCommentRule(parsed.comments));
     corpus.push(parsed.allText);
+    visible.push(parsed.visibleText);
     for (const link of parsed.links) {
       if (/^https?:\/\//i.test(link.url)) urls.push(link.url);
       if (link.tag === 'img' && link.attr === 'src') {
@@ -43,7 +46,10 @@ export function scan(input: ScanInput | string): ScanResult {
       }
     }
   }
-  if (text) corpus.push(text);
+  if (text) {
+    corpus.push(text);
+    visible.push(text);
+  }
   if (url) urls.push(url);
 
   const all = corpus.join('\n');
@@ -55,6 +61,7 @@ export function scan(input: ScanInput | string): ScanResult {
   findings.push(...fragmentRule([...new Set(urls)]));
   findings.push(...exfiltrationRule(dedupeImages(images)));
   findings.push(...fakeRoleRule(all));
+  findings.push(...aiOrderRule(visible.join('\n')));
 
   const unique = dedupe(findings).sort(
     (a, b) => Number(b.strong) - Number(a.strong) || severityRank(b.severity) - severityRank(a.severity),

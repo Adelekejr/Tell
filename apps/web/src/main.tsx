@@ -7,6 +7,8 @@ import './styles/base.css';
 import './styles/components.css';
 import './styles/cards.css';
 import './styles/home.css';
+import './styles/lab.css';
+import './styles/run.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root');

@@ -2,7 +2,9 @@ import type { RouteObject } from 'react-router';
 import { Layout } from './components/Layout';
 import { Device } from './pages/Device';
 import { Home } from './pages/Home';
-import { Board, Card, Check, Docs, How, Lab, NotFound, Run, Traps } from './pages/stubs';
+import { Lab } from './pages/Lab';
+import { Run } from './pages/Run';
+import { Board, Card, Check, Docs, How, NotFound, Traps } from './pages/stubs';
 
 export const routes: RouteObject[] = [
   {

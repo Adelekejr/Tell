@@ -4,7 +4,8 @@ import { Device } from './pages/Device';
 import { Home } from './pages/Home';
 import { Lab } from './pages/Lab';
 import { Run } from './pages/Run';
-import { Board, Card, Check, Docs, How, NotFound, Traps } from './pages/stubs';
+import { Check } from './pages/Check';
+import { Board, Card, Docs, How, NotFound, Traps } from './pages/stubs';
 
 export const routes: RouteObject[] = [
   {

@@ -16,6 +16,8 @@ export { parseHtml, hiddenBlocks, decodeEntities } from './html.js';
 export type { ParsedHtml, TextSegment } from './html.js';
 export { judgeInstruction, isInstructionLike } from './instruction.js';
 export { revealInvisible, stripInvisible } from './util.js';
+export { flagsHiddenText } from './rules/hidden-css.js';
+export { flagsComment } from './rules/html-comment.js';
 
 /**
  * Runs every rule over a page, a piece of text, or both. Pure and

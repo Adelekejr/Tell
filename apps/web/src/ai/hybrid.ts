@@ -163,3 +163,22 @@ export async function enableDrillOnDevice(onProgress: (value: number) => void): 
   const device = getModel({ mode: InferenceMode.ONLY_ON_DEVICE, schema: AGENT_SCHEMA });
   await device.initializeDeviceModel(onProgress);
 }
+
+export const EXPLAIN_SCHEMA = Schema.object({
+  properties: {
+    summary: Schema.string({ description: 'One plain sentence about the whole page.' }),
+    items: Schema.array({
+      items: Schema.object({
+        properties: {
+          n: Schema.integer({ description: 'The item number.' }),
+          effect: Schema.string({ description: 'What it would make an AI do, in plain words.' }),
+        },
+      }),
+    }),
+  },
+});
+
+/** Plain-language explanation of rule findings for the check page, answered as JSON. */
+export function askExplain(prompt: string, mode: DrillMode): Promise<Answer> {
+  return generate(prompt, { mode: MODE[mode], schema: EXPLAIN_SCHEMA });
+}

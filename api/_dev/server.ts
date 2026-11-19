@@ -25,6 +25,7 @@ const modules: Record<string, () => Promise<Module>> = {
   '/api/run-reply': () => import('../run-reply.js'),
   '/api/trap': () => import('../trap.js'),
   '/api/canary': () => import('../canary.js'),
+  '/api/fetch': () => import('../fetch.js'),
 };
 
 function rewrite(url: URL): URL {

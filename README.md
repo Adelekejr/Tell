@@ -11,7 +11,7 @@ Tell hides small traps in ordinary web pages, then shows you the moment an AI ag
   Gemini Nano on device, Gemini in the cloud
 </p>
 
-> **Status: in progress.** Built for the Firebase #BuildHybridAI hackathon (deadline 30 Nov 2026). Working now: the home page, the on-device/cloud AI layer, the detection rules, the **live test** (7 trap pages, canary links, live cards) and the **prompt drill**. The check page and signed scorecards land over the next days.
+> **Status: in progress.** Built for the Firebase #BuildHybridAI hackathon (deadline 30 Nov 2026). Working now: the home page, the on-device/cloud AI layer, the detection rules, the **live test** (7 trap pages, canary links, live cards) the **prompt drill** and the **check page**. Signed scorecards land over the next days.
 
 ## The problem
 
@@ -90,6 +90,14 @@ No agent to hand? Paste its system prompt into the **Prompt drill** tab in `/lab
 - Your prompt is never sent to Tell's servers or stored. Drill results are marked *browser-reported* and never go on the board.
 - The cloud path needs App Check (`VITE_RECAPTCHA_SITE_KEY`), because AI Logic enforces it. Until it is set, the drill runs on-device only.
 
+### The check page
+
+For everyone, at `/check`: paste a link or some text and see **You see** next to **Your AI reads**, with hidden lines highlighted.
+
+- Pasted text is checked in the browser and never sent to Tell's server. A link goes to `POST /api/fetch` (the link travels in the body, so it stays out of logs).
+- The fetcher only opens ordinary public pages. It accepts http and https on ports 80 and 443, with no user names or passwords in the link. Every DNS answer must be a public address, and the connection is pinned to the address that was checked. Private, loopback, link-local and metadata addresses (including IPv4-mapped and NAT64 forms) are refused on every redirect, up to 3. It has a 5 s limit and a 1 MB cap (also after decompression), accepts HTML or text only, and sends no cookies. Up to 3 stylesheets are inlined, through the same checks. Each hashed IP gets 30 fetches an hour.
+- The shared detector decides what is hidden. Gemini (on-device first; for pasted text the cloud only after **Allow cloud for pasted text**) then writes one plain sentence per finding, with a badge saying where it ran. It can't add, remove or overrule a finding.
+
 ## Quick start
 
 Needs Node 22+ and pnpm (`corepack enable`).
@@ -105,6 +113,7 @@ To try the live test locally, run the API with its **dev-only in-memory store** 
 
 ```bash
 pnpm --filter @tell/api dev     # http://localhost:3001 (TELL_DEV_STORE=memory, never used in production)
+# In a sandbox whose DNS answers with 198.18.x.x tunnel addresses, use `pnpm --filter @tell/api dev:sandbox` so link checks work locally.
 # in apps/web/.env.local: VITE_API_BASE=http://localhost:3001
 ```
 

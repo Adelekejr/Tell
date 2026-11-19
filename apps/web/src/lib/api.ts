@@ -117,3 +117,18 @@ export function clearLastRun(): void {
     // ignore
   }
 }
+
+export interface FetchedPage {
+  url: string;
+  contentType: string;
+  kind: 'html' | 'text';
+  body: string;
+  bytes: number;
+  redirects: number;
+  stylesheets: number;
+}
+
+/** Asks Tell's server to fetch a public page for the check. The link goes in the body, not the address. */
+export function fetchPage(url: string): Promise<FetchedPage> {
+  return call<FetchedPage>('/api/fetch', { method: 'POST', body: JSON.stringify({ url }), appCheck: true });
+}

@@ -19,6 +19,12 @@ const HOW: Record<HiddenReason, string> = {
 /** Tricks with no everyday reason to hide a long run of text. */
 const DECEPTIVE: ReadonlySet<HiddenReason> = new Set(['transparent', 'zero-size', 'off-screen']);
 
+/** Would the hidden-text rule report this hidden block? Used to highlight exactly what the rule found. */
+export function flagsHiddenText(text: string, reason: HiddenReason): boolean {
+  const t = text.trim();
+  return judgeInstruction(t).isInstruction || (DECEPTIVE.has(reason) && t.length >= 40);
+}
+
 /** Trap 1, Invisible Ink: text people can't see but an AI can read. */
 export function hiddenCssRule(parsed: ParsedHtml): Finding[] {
   const findings: Finding[] = [];

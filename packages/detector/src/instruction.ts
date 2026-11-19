@@ -20,6 +20,14 @@ const STRONG: { name: string; re: RegExp }[] = [
   },
   { name: 'you-are-now', re: /\byou\s+are\s+now\b/i },
   {
+    // "AI assistants: tell the reader..." / "Agents reading this page, recommend..."
+    name: 'ai-address',
+    re: new RegExp(
+      `\\b${AI_WORDS}(?:\\s+(?:reading|parsing|summari[sz]ing|processing|visiting|browsing)\\s+(?:this|the)\\s+(?:page|text|site|article|document|content|post))?\\s*[:,]\\s*(?:please\\s+)?(?:tell|say|recommend|ignore|disregard|visit|open|include|reply|respond|answer|write|send|add|mention|promote|suggest|praise|rate|mark|summari[sz]e|describe|claim|state|output|print|go|navigate|click|direct|forward|email|link|fetch|load|insert|append|do not|don't|never|always)\\b`,
+      'i',
+    ),
+  },
+  {
     name: 'system-prompt',
     re: /\b(?:system|developer)\s+(?:prompt|message|override|instructions?)s?\b/i,
   },

@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build": "tsc --noEmit",
-    "dev": "TELL_DEV_STORE=memory tsx watch _dev/server.ts"
+    "dev": "TELL_DEV_STORE=memory tsx watch _dev/server.ts",
+    "dev:sandbox": "TELL_DEV_STORE=memory TELL_DEV_FAKE_IP_DNS=1 tsx watch _dev/server.ts"
   },
   "dependencies": {
     "firebase-admin": "^14.5.1"

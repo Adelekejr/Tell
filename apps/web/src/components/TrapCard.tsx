@@ -68,21 +68,26 @@ function Back({ trap, label }: { trap: TrapInfo; label?: string }) {
 export function TrapCard({ trap, state, evidence, backLabel = 'Waiting', decorative, onClick }: TrapCardProps) {
   const revealed = state !== 'waiting';
   const prev = useRef(state);
-  const [flipping, setFlipping] = useState(false);
+  const [flip, setFlip] = useState<'' | 'is-flipping' | 'is-reflipping'>('');
 
   useEffect(() => {
-    if (prev.current === 'waiting' && state !== 'waiting') {
-      setFlipping(true);
-      if (!decorative && (state === 'fired' || state === 'echo')) tick();
-    }
+    const was = prev.current;
     prev.current = state;
+    if (was === state) return;
+    const firedNow = state === 'fired' || state === 'echo';
+    const firedBefore = was === 'fired' || was === 'echo';
+    if (was === 'waiting' && state !== 'waiting') setFlip('is-flipping');
+    // A held or suspicious card that later fires turns over once more to land on Tell!
+    else if (was !== 'waiting' && firedNow && !firedBefore) setFlip('is-reflipping');
+    else return;
+    if (!decorative && firedNow) tick();
   }, [state, decorative]);
 
-  const className = ['tcard', revealed ? 'is-flipped' : '', flipping ? 'is-flipping' : ''].filter(Boolean).join(' ');
+  const className = ['tcard', revealed ? 'is-flipped' : '', flip].filter(Boolean).join(' ');
   const word = revealed ? STATE_WORD[state] : 'Waiting';
   const label = `${trap.name}: ${word}${evidence ? `. ${evidence}` : ''}`;
   const faces = (
-    <div className="tcard-inner" onAnimationEnd={() => setFlipping(false)}>
+    <div className="tcard-inner" onAnimationEnd={() => setFlip('')}>
       <Back trap={trap} label={backLabel} />
       {revealed ? <Front trap={trap} state={state} evidence={evidence} /> : null}
     </div>

@@ -5,21 +5,75 @@
   "buildCommand": "echo 'Tell API: functions only, no static build'",
   "outputDirectory": "api-public",
   "functions": {
-    "api/**/*.ts": { "maxDuration": 10 }
+    "api/**/*.ts": {
+      "maxDuration": 10
+    }
   },
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
       ]
     },
     {
       "source": "/api/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/(t|c)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive, nosnippet, noimageindex"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/t/:run/:trap",
+      "destination": "/api/trap?run=:run&trap=:trap"
+    },
+    {
+      "source": "/c/:run/:trap",
+      "destination": "/api/canary?run=:run&trap=:trap"
+    },
+    {
+      "source": "/api/run/:id/finish",
+      "destination": "/api/run-finish?id=:id"
+    },
+    {
+      "source": "/api/run/:id/reply",
+      "destination": "/api/run-reply?id=:id"
+    },
+    {
+      "source": "/api/run/:id",
+      "destination": "/api/run-state?id=:id"
     }
   ]
 }

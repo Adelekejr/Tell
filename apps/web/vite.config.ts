@@ -18,6 +18,13 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Tests never use a developer's local Firebase or API settings.
+    env: {
+      VITE_FIREBASE_API_KEY: '',
+      VITE_FIREBASE_PROJECT_ID: '',
+      VITE_FIREBASE_APP_ID: '',
+      VITE_API_BASE: '',
+    },
     include: ['src/**/*.test.{ts,tsx}'],
   },
 });

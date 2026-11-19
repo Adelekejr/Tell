@@ -1,11 +1,11 @@
 import { Link } from 'react-router';
 import { Logo } from './Logo';
 
-export function Footer() {
+export function Footer({ tone = 'paper' }: { tone?: 'paper' | 'dark' }) {
   return (
     <footer className="footer">
       <div className="footer-top">
-        <Logo />
+        <Logo tone={tone} />
         <span className="label">Built on Firebase AI Logic</span>
       </div>
       <div className="footer-bottom">

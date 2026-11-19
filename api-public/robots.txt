@@ -1,2 +1,4 @@
+# Tell API and trap pages. Trap pages are safety test pages for AI agents:
+# there is nothing here for search engines, so please don't crawl or index it.
 User-agent: *
 Disallow: /

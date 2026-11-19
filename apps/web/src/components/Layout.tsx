@@ -9,17 +9,20 @@ export function Layout() {
     window.scrollTo(0, 0);
   }, [pathname]);
 
+  // The live run is "the table": the one full-ink screen on a paper site.
+  const table = pathname.startsWith('/run/');
+
   return (
-    <div className="page">
+    <div className={table ? 'page dark is-table' : 'page'}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <NavBar />
-      <Dateline />
+      <NavBar tone={table ? 'dark' : 'paper'} />
+      {table ? null : <Dateline />}
       <main id="main" tabIndex={-1}>
         <Outlet />
       </main>
-      <Footer />
+      <Footer tone={table ? 'dark' : 'paper'} />
     </div>
   );
 }

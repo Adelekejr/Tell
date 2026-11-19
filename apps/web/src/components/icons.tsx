@@ -84,3 +84,20 @@ export function CloseIcon(p: P) {
     </svg>
   );
 }
+
+export function CopyIcon(p: P) {
+  return (
+    <svg {...base} fill="none" stroke="currentColor" strokeWidth="1.5" {...p}>
+      <rect x="5.25" y="5.25" width="8" height="8" rx="1.25" />
+      <path d="M10.75 5.25V3.5a.75.75 0 0 0-.75-.75H3.5a.75.75 0 0 0-.75.75V10c0 .41.34.75.75.75h1.75" />
+    </svg>
+  );
+}
+
+export function CheckIcon(p: P) {
+  return (
+    <svg {...base} fill="none" stroke="currentColor" strokeWidth="1.6" {...p}>
+      <path d="m3.5 8.4 3 3 6-6.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

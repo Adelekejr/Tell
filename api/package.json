@@ -7,9 +7,13 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "dev": "TELL_DEV_STORE=memory tsx watch _dev/server.ts"
   },
   "dependencies": {
     "firebase-admin": "^14.5.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }

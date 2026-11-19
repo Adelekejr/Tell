@@ -1,29 +1,6 @@
 import { useParams } from 'react-router';
 import { Stub } from '../components/Stub';
 
-export function Lab() {
-  return (
-    <Stub
-      title="Lab"
-      kicker="Agent test lab"
-      heading="Deal your agent a hand."
-      lede="Start a live test with seven private trap links, or paste your agent’s system prompt and run a prompt drill."
-    />
-  );
-}
-
-export function Run() {
-  const { id } = useParams();
-  return (
-    <Stub
-      title="Live run"
-      kicker={`Run ${id ?? ''}`.trim()}
-      heading="Cards are dealt."
-      lede="Each card flips the moment your agent visits a trap link with its secret word."
-    />
-  );
-}
-
 export function Card() {
   const { id } = useParams();
   return (

@@ -9,6 +9,7 @@ import './styles/cards.css';
 import './styles/home.css';
 import './styles/lab.css';
 import './styles/drill.css';
+import './styles/check.css';
 import './styles/run.css';
 
 const root = document.getElementById('root');

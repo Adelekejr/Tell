@@ -30,3 +30,8 @@ export function htmlCommentRule(comments: readonly string[]): Finding[] {
   }
   return findings;
 }
+
+/** Would the comment rule report this comment? */
+export function flagsComment(text: string): boolean {
+  return htmlCommentRule([text]).length > 0;
+}

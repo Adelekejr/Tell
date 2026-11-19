@@ -13,17 +13,6 @@ export function Card() {
   );
 }
 
-export function Check() {
-  return (
-    <Stub
-      title="Check a page"
-      kicker="For everyone"
-      heading="What you see, and what your AI reads."
-      lede="Paste a link or some text. Tell highlights the lines people can’t see but an AI can."
-    />
-  );
-}
-
 export function Board() {
   return (
     <Stub

@@ -10,6 +10,8 @@ export const LIMITS = {
   trapRead: { limit: 300, windowMs: HOUR },
   reply: { limit: 30, windowMs: HOUR },
   finish: { limit: 60, windowMs: HOUR },
+  /** Page fetches for the check page (POST /api/fetch). */
+  fetch: { limit: 30, windowMs: HOUR },
   /** Per run, not per IP: how often the run page may poll. Generous, it's cheap. */
   view: { limit: 3000, windowMs: HOUR },
 } as const;

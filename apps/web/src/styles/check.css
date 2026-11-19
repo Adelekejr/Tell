@@ -1,0 +1,316 @@
+/* Check page: phone first. Paste, then "You see" next to "Your AI reads". */
+.check {
+  display: grid;
+  gap: var(--s6);
+  padding: var(--s6) var(--gutter) var(--s12);
+}
+.check-head .h1 {
+  margin-top: var(--s3);
+}
+.check-lede {
+  max-width: 40ch;
+  margin-top: var(--s3);
+}
+.check-form {
+  display: grid;
+  gap: var(--s3);
+}
+.check-form textarea {
+  min-height: 52px;
+  resize: vertical;
+  font-size: 17px;
+}
+.check-actions {
+  display: grid;
+  gap: var(--s2);
+}
+.check-actions .btn {
+  width: 100%;
+}
+.check-actions .linkish {
+  justify-self: center;
+}
+.check-how {
+  max-width: 46ch;
+}
+
+.check-result {
+  display: grid;
+  gap: var(--s5);
+  scroll-margin-top: 72px;
+}
+
+/* The verdict: an ink panel, the only loud thing on the page. */
+.check-verdict {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border-radius: var(--r-card);
+  background: var(--inverse-bg);
+  color: var(--inverse-text);
+  animation: verdict-in 320ms var(--ease-out) both;
+}
+.check-verdict > svg {
+  width: 22px;
+  height: 22px;
+  margin-top: 5px;
+  color: var(--ultra-ink);
+}
+.check-verdict.is-clear > svg {
+  color: var(--inverse-text);
+}
+.check-verdict-head {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.check-verdict-sub {
+  margin-top: var(--s1);
+  font-size: 15px;
+  color: var(--muted-on-ink);
+}
+.check-meta {
+  margin-top: calc(-1 * var(--s2));
+}
+
+/* The split. Two columns from 360 px; a toggle below that. */
+.split-seg {
+  display: none;
+  margin-bottom: var(--s3);
+}
+.check-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.split-col {
+  display: grid;
+  align-content: start;
+  gap: var(--s3);
+  min-width: 0;
+  padding: var(--s4) var(--s4) var(--s5) 0;
+  overflow-wrap: anywhere;
+}
+.split-reads {
+  padding: var(--s4) 0 var(--s5) var(--s4);
+  border-left: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  /* Show code exactly: no "<!--" arrow ligatures. */
+  font-variant-ligatures: none;
+  font-feature-settings: 'calt' 0, 'liga' 0;
+}
+.split-see {
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+.split-title {
+  font-weight: 650;
+}
+.split-reads .split-title {
+  font-weight: 700;
+}
+.split-gap {
+  color: var(--muted);
+  letter-spacing: 0.2em;
+}
+.split-more {
+  margin-top: var(--s2);
+}
+
+/* Hidden text: revealed like invisible ink, one line after another. */
+.ai-hidden {
+  padding: 1px 2px;
+  border-radius: 2px;
+  color: var(--text);
+  background-color: transparent;
+  background-image: linear-gradient(var(--hl), var(--hl));
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  animation: ink-reveal 600ms var(--ease-out) both;
+  animation-delay: calc(280ms + var(--i, 0) * 240ms);
+}
+@keyframes ink-reveal {
+  from {
+    color: transparent;
+    background-size: 0% 100%;
+  }
+  40% {
+    color: transparent;
+  }
+  to {
+    color: var(--text);
+    background-size: 100% 100%;
+  }
+}
+@keyframes verdict-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.ai-quiet {
+  color: var(--muted);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+/* Findings */
+.findings {
+  display: grid;
+}
+.finding {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s5) 0;
+  border-bottom: 1px solid var(--line);
+}
+.finding-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+.finding-top .label {
+  text-align: right;
+}
+.finding-title {
+  font-size: 19px;
+}
+.finding-text {
+  color: var(--muted);
+}
+.finding-quote {
+  font-variant-ligatures: none;
+  font-feature-settings: 'calt' 0, 'liga' 0;
+  padding: var(--s2) var(--s3);
+  border-left: 2px solid var(--accent);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.finding-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s1);
+}
+.findings > .btn {
+  justify-self: start;
+  margin-top: var(--s4);
+}
+.check-summary {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--ring);
+}
+.check-summary-text {
+  font-size: 17px;
+}
+.check-summary .source-badge {
+  justify-self: start;
+}
+.check-result > .btn {
+  width: 100%;
+}
+
+@media (max-width: 359px) {
+  .split-seg {
+    display: grid;
+  }
+  .check-split {
+    grid-template-columns: 1fr;
+  }
+  .check-split[data-side='see'] .split-reads,
+  .check-split[data-side='reads'] .split-see {
+    display: none;
+  }
+  .split-col,
+  .split-reads {
+    padding: var(--s4) 0;
+    border-left: 0;
+  }
+}
+
+@media (min-width: 720px) {
+  .split-see {
+    font-size: 16px;
+  }
+  .split-reads {
+    font-size: 13.5px;
+  }
+  .split-col {
+    padding-right: var(--s6);
+  }
+  .split-reads {
+    padding-left: var(--s6);
+  }
+}
+
+@media (min-width: 960px) {
+  .check {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 24px;
+    row-gap: var(--s8);
+    padding-top: var(--s16);
+    padding-bottom: var(--s16);
+  }
+  .check-head {
+    grid-column: 1 / span 6;
+  }
+  .check-form {
+    grid-column: 7 / span 6;
+    align-self: end;
+  }
+  .check-how {
+    grid-column: 7 / span 6;
+  }
+  .check-result {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+  .check-result > * {
+    grid-column: 1 / -1;
+  }
+  .check-result > .check-verdict,
+  .check-result > .check-meta {
+    grid-column: 1 / span 8;
+  }
+  .check-result > .findings,
+  .check-result > .check-ai-note,
+  .check-result > .drill-switch {
+    grid-column: 1 / span 8;
+  }
+  .check-result > .btn {
+    grid-column: 1 / span 4;
+    width: auto;
+  }
+  .check-actions {
+    grid-template-columns: auto auto;
+    justify-content: start;
+    align-items: center;
+    gap: var(--s5);
+  }
+  .check-actions .btn {
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-hidden,
+  .check-verdict {
+    animation: none;
+  }
+}

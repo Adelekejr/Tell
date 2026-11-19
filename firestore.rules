@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Tell v1 rules. Clients never write to Firestore: every write goes through
+// the Vercel API with the Admin SDK, which bypasses these rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A run is readable only by someone who knows its unguessable 128-bit id.
+    match /runs/{runId} {
+      allow get: if true;
+      allow list, write: if false;
+
+      // Canary hits for a run, streamed to the live run page.
+      match /hits/{hitId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // Signed scorecards: fetch one by id, never list them all.
+    match /cards/{cardId} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    // Opt-in leaderboard. Hidden entries are never readable.
+    match /board/{entryId} {
+      allow read: if resource.data.hidden == false;
+      allow write: if false;
+    }
+
+    // Everything else (runSecrets, limits, ...) is server-only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

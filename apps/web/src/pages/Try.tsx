@@ -1,30 +1,13 @@
-import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { SAMPLE_CARD, getTrap, trapNumber } from '@tell/shared';
 import { gradeLabel } from '../card/text';
 import { CHECK_EXAMPLES, TRAP_EXAMPLES, checkExamplePath, exampleKey } from '../check/examples';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
-import { CheckIcon, CopyIcon } from '../components/icons';
+import { CopyLinkButton } from '../components/CopyLinkButton';
 import { IndexRow } from '../components/TryIt';
 import { API_BASE, cardPath, verifyPath } from '../lib/api';
-import { copyText } from '../lib/copy';
 import { usePageTitle } from '../lib/title';
-
-function CopyButton({ url, label }: { url: string; label: string }) {
-  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  return (
-    <button
-      type="button"
-      className="btn btn-quiet btn-sm"
-      aria-label={label}
-      onClick={async () => setState((await copyText(url)) ? 'copied' : 'failed')}
-    >
-      {state === 'copied' ? <CheckIcon /> : <CopyIcon />}
-      {state === 'copied' ? 'Copied' : state === 'failed' ? 'Couldn\u2019t copy' : 'Copy link'}
-    </button>
-  );
-}
 
 function Section({ id, title, children, intro }: { id: string; title: string; intro: string; children: ReactNode }) {
   return (
@@ -95,7 +78,7 @@ export function Try() {
                   <Button to={checkExamplePath(e.id)} variant="quiet" size="sm" arrow>
                     Check it
                   </Button>
-                  {API_BASE ? <CopyButton url={e.input} label={`Copy the demo link for ${t.name}`} /> : null}
+                  {API_BASE ? <CopyLinkButton url={e.input} label={`Copy the demo link for ${t.name}`} /> : null}
                 </span>
               </li>
             );

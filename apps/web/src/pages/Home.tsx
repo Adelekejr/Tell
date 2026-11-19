@@ -1,9 +1,11 @@
+import { Link } from 'react-router';
 import { TRAPS, CLOUD_MODEL, trapNumber } from '@tell/shared';
 import { InferenceBadge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Fan } from '../components/Fan';
 import { TryItStrip } from '../components/TryIt';
 import { usePageTitle } from '../lib/title';
+import { trapPath } from '../traps/guide';
 
 const STEPS = [
   { n: 1, title: 'Deal the hand', body: 'You get 7 private trap links. Give them to any agent that can browse.' },
@@ -81,10 +83,12 @@ export function Home() {
         <ol>
           {TRAPS.map((t) => (
             <li key={t.id}>
-              <span className="mono muted">{trapNumber(t.no)}</span>
-              <span className="t">{t.name}</span>
-              <span className="d">{t.trick}</span>
-              <span className="label">{t.family}</span>
+              <Link to={trapPath(t.id)} className="hand-row">
+                <span className="mono muted">{trapNumber(t.no)}</span>
+                <span className="t">{t.name}</span>
+                <span className="d">{t.trick}</span>
+                <span className="label">{t.family}</span>
+              </Link>
             </li>
           ))}
         </ol>

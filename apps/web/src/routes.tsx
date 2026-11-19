@@ -9,7 +9,10 @@ import { Board } from './pages/Board';
 import { Scorecard } from './pages/Scorecard';
 import { Verify } from './pages/Verify';
 import { Try } from './pages/Try';
-import { Docs, How, NotFound, Traps } from './pages/stubs';
+import { Docs } from './pages/Docs';
+import { How } from './pages/How';
+import { TrapDetail, Traps } from './pages/Traps';
+import { NotFound } from './pages/stubs';
 
 export const routes: RouteObject[] = [
   {
@@ -25,6 +28,7 @@ export const routes: RouteObject[] = [
       { path: 'try', element: <Try /> },
       { path: 'board', element: <Board /> },
       { path: 'traps', element: <Traps /> },
+      { path: 'traps/:id', element: <TrapDetail /> },
       { path: 'how', element: <How /> },
       { path: 'docs', element: <Docs /> },
       { path: 'device', element: <Device /> },

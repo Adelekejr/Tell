@@ -73,10 +73,10 @@ export function TrapCard({ trap, state, evidence, backLabel = 'Waiting', decorat
   useEffect(() => {
     if (prev.current === 'waiting' && state !== 'waiting') {
       setFlipping(true);
-      if (state === 'fired' || state === 'echo') tick();
+      if (!decorative && (state === 'fired' || state === 'echo')) tick();
     }
     prev.current = state;
-  }, [state]);
+  }, [state, decorative]);
 
   const className = ['tcard', revealed ? 'is-flipped' : '', flipping ? 'is-flipping' : ''].filter(Boolean).join(' ');
   const word = revealed ? STATE_WORD[state] : 'Waiting';

@@ -284,6 +284,9 @@
   .stub {
     padding-top: var(--s16);
   }
+  .stub .h1 {
+    max-width: 22ch;
+  }
 }
 .device-result {
   display: grid;

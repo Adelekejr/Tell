@@ -25,12 +25,12 @@ describe('Try it (/try)', () => {
   it('lists the check examples, the seven demo trap pages, two sample prompts and the sample card', async () => {
     await openAt('/try');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('See a tell in seconds.');
-    const check = screen.getByRole('region', { name: 'Known-bad text, and one clean one' });
+    const check = screen.getByRole('region', { name: 'Check a page' });
     const links = within(check).getAllByRole('link');
     expect(links).toHaveLength(8);
     expect(links.map((l) => l.getAttribute('href'))).toContain('/check?example=clean');
     expect(within(check).getByText('A clean recipe')).toBeTruthy();
-    const traps = screen.getByRole('region', { name: 'Seven real pages, always on' });
+    const traps = screen.getByRole('region', { name: 'Demo trap pages' });
     expect(within(traps).getAllByRole('link', { name: 'Check it' }).map((l) => l.getAttribute('href'))).toEqual(
       [1, 2, 3, 4, 5, 6, 7].map((n) => `/check?example=trap-${n}`),
     );

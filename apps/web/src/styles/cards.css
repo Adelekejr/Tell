@@ -180,6 +180,9 @@ button.tcard:active .tcard-inner {
   background: var(--accent);
   color: var(--on-accent);
 }
+.tcard-front.is-fired .tcard-ev {
+  opacity: 1; /* paper on Ultramarine is 5.29:1 only at full strength */
+}
 .tcard-front.is-fired .tcard-name {
   margin-top: 10px;
   font-size: var(--name-fired);

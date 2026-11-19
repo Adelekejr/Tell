@@ -16,15 +16,18 @@
 
 .drill-engines {
   display: grid;
-  gap: var(--s3);
+  border-top: 1px solid var(--line);
 }
+/* Flat rows with hairlines, not boxes inside the form. */
 .drill-engine {
   display: grid;
   gap: var(--s2);
-  padding: var(--s4);
-  border-radius: var(--r-card);
-  background: var(--surface);
-  box-shadow: var(--ring);
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--line);
+}
+.drill-engines .drill-switch {
+  padding-block: var(--s4);
+  border-bottom: 1px solid var(--line);
 }
 .drill-engine-top {
   display: flex;
@@ -43,9 +46,7 @@
   grid-template-columns: auto 1fr;
   align-items: start;
   gap: var(--s3);
-  padding: var(--s4);
-  border-radius: var(--r-card);
-  box-shadow: var(--ring);
+  padding: var(--s3) 0;
   cursor: pointer;
 }
 .drill-switch > span:last-child {
@@ -214,7 +215,7 @@
 }
 .sheet-name .source-badge .tag {
   height: 20px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .sheet-state {
   display: inline-flex;
@@ -401,10 +402,13 @@
   border-radius: 50%;
   box-shadow: inset 0 0 0 1.5px var(--line-strong, var(--line));
 }
+.prompt-risks {
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
 .prompt-risks li {
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  padding: var(--s3) 0;
+  border-bottom: 1px solid var(--line);
 }
 .prompt-risks svg {
   color: var(--accent);

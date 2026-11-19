@@ -95,7 +95,7 @@
   color: inherit;
 }
 .sheet-row.is-fired .sheet-n {
-  opacity: 0.75;
+  opacity: 1; /* any fade on the accent row drops below 4.5:1 */
 }
 .sheet-row.is-fired + .sheet-row {
   border-top-color: transparent;
@@ -185,8 +185,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.linkbox {
+  padding-block: 4px;
+}
 .linkbox-copy {
-  min-height: 40px;
+  min-height: 44px;
   gap: 6px;
 }
 .linkbox-copy svg,
@@ -196,7 +199,7 @@
 }
 .card-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   margin-top: 10px;
 }
@@ -317,18 +320,17 @@
 }
 .filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: var(--s5);
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 .chip {
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 22px;
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -368,6 +370,10 @@
   line-height: 1;
 }
 .lb .nm {
+  /* a 44 px tall hit area without growing the row */
+  display: block;
+  margin-block: -10px;
+  padding-block: 10px;
   min-width: 0;
   overflow: hidden;
   color: inherit;

@@ -5,7 +5,7 @@
  * kind of trick; the clean one is there for comparison.
  */
 import type { TrapId } from '@tell/shared';
-import { TRAPS, demoTrapUrl, getTrap, renderDemoTrapPage, toBase64, toTagLetters } from '@tell/shared';
+import { TRAPS, demoTrapUrl, getTrap, renderDemoTrapPage, toBase64, toTagLetters, trapNumber } from '@tell/shared';
 import { API_BASE } from '../lib/api';
 import type { CheckView } from './analyse';
 import { analyseHtml, analyseText } from './analyse';
@@ -190,4 +190,10 @@ export function exampleMeta(e: CheckExample): string {
 
 export function checkExamplePath(id: string): string {
   return `/check?example=${encodeURIComponent(id)}`;
+}
+
+/** The small mono key at the start of an example row. */
+export function exampleKey(e: CheckExample): string {
+  if (e.trap) return `${trapNumber(getTrap(e.trap).no)} \u00B7 ${getTrap(e.trap).name}`;
+  return e.bad ? 'Two tricks' : 'Clean';
 }

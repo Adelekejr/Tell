@@ -25,16 +25,25 @@ describe('Home', () => {
 
   it('lists all seven traps', () => {
     renderAt('/');
-    expect(screen.getByText('The Impostor')).toBeTruthy();
-    expect(screen.getByText('Invisible Ink')).toBeTruthy();
+    expect(screen.getAllByText('The Impostor').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Invisible Ink').length).toBeGreaterThan(0);
   });
 
   it('flips the raised card to Tell! after the deal', () => {
     vi.useFakeTimers();
-    const { container } = renderAt('/');
-    expect(container.querySelector('.tcard-big')).toBeNull();
+    renderAt('/');
+    const hero = () => screen.getByRole('button', { name: /^The Whisper/ });
+    expect(hero().className).not.toContain('is-flipped');
     act(() => vi.advanceTimersByTime(1500));
-    expect(container.querySelector('.tcard-big')?.textContent).toBe('Tell!');
+    expect(hero().className).toContain('is-flipped');
+    expect(hero().textContent).toContain('Tell!');
+  });
+
+  it('offers the made-up examples as one list, labelled as made up', () => {
+    renderAt('/');
+    const strip = screen.getByRole('region', { name: /Tap one/ });
+    expect(strip.textContent).toContain('Made-up examples');
+    expect(strip.querySelectorAll('.index-row')).toHaveLength(5);
   });
 });
 

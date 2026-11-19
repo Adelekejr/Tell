@@ -23,3 +23,8 @@ export function tick(): void {
   if (prefersReducedMotion()) return;
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(12);
 }
+
+/** Soft limit: follows the finger at first, then resists. Never passes `max`. */
+export function rubber(delta: number, max: number): number {
+  return max * Math.tanh(delta / (max * 2));
+}

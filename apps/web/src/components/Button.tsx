@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Link } from 'react-router';
 
-type Variant = 'primary' | 'ghost' | 'accent';
+type Variant = 'primary' | 'ghost' | 'accent' | 'quiet';
 
 interface Common {
   variant?: Variant;

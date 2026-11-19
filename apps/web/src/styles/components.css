@@ -106,13 +106,15 @@
     position: absolute;
     left: 50%;
     display: flex;
-    gap: 32px;
+    gap: 20px;
     transform: translateX(-50%);
   }
   .nav-links a {
     position: relative;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-width: 44px;
     min-height: 44px;
     font-size: 15px;
     font-weight: 550;
@@ -179,6 +181,9 @@
   letter-spacing: 0;
   opacity: 0.72;
 }
+.btn-accent .sub {
+  opacity: 1; /* keep 5.29:1 on the accent */
+}
 .btn .arrow {
   font-family: var(--font-mono);
   font-weight: 400;
@@ -204,6 +209,13 @@
 }
 .btn-accent:hover {
   background: color-mix(in srgb, var(--accent) 94%, var(--ink));
+}
+.btn-quiet {
+  background: transparent;
+  color: var(--text);
+}
+.btn-quiet:hover {
+  background: var(--surface-2);
 }
 .btn-sm {
   width: auto;
@@ -414,6 +426,8 @@ textarea.input {
 .footer-links a {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;
   min-height: 44px;
   font-size: var(--fs-small);
   color: var(--muted);

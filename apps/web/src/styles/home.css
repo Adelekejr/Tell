@@ -20,15 +20,95 @@
   margin: var(--s6) 0 var(--s2);
 }
 .fan-card {
+  --dx: 0px;
+  --dy: 0px;
+  --dr: 0deg;
+  --up: 0px;
   position: absolute;
   bottom: 26px;
   left: 50%;
   width: 118px;
   margin-left: -59px;
   transform-origin: 50% 230%;
-  transform: rotate(var(--rot)) translateY(var(--lift, 0px));
-  animation: deal 560ms var(--ease-out) both;
+  transform: translate(var(--dx), var(--dy)) rotate(calc(var(--rot) + var(--dr))) translateY(calc(var(--lift, 0px) + var(--up)));
+  transition: transform 320ms var(--ease-out);
+  animation: deal 400ms var(--ease-out) backwards;
   animation-delay: calc(var(--i) * 60ms);
+}
+/* A turned card rises a little so its face reads; a pulled one follows the pointer, then settles back. */
+.fan-card.is-up {
+  --up: -14px;
+}
+.fan-card.is-dragging {
+  transition: none;
+}
+.fan-card .tcard {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.fan-card.is-dragging .tcard {
+  cursor: grabbing;
+}
+.fan-card .tcard-inner {
+  transition:
+    transform 380ms var(--ease-out),
+    scale var(--t-press) var(--ease-out);
+}
+.fan-card .tcard:active .tcard-inner {
+  scale: 0.98;
+}
+.fan-card .tcard:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* Narrow phones: a smaller hand so the outer cards stay on screen. */
+.fan-family {
+  display: none;
+}
+@media (max-width: 399px) {
+  .fan {
+    height: 204px;
+  }
+  .fan-card {
+    width: 98px;
+    margin-left: -49px;
+  }
+  .fan-card .tcard {
+    --big: 30px;
+    --name: 17px;
+    --name-fired: 15px;
+    --pad: 9px;
+    --seal: 28px;
+  }
+  .fan-trick,
+  .fan-card .tcard-front.is-fired .tcard-ev,
+  .fan-card .tcard-front.is-fired .tcard-no {
+    display: none;
+  }
+  .fan-family {
+    display: block;
+  }
+}
+/* The trick face: paper, like a held card, but it reports nothing. */
+.tcard-front.is-trick {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow:
+    inset 0 0 0 1px var(--line-paper),
+    var(--shadow-card);
+}
+.tcard-front.is-trick .tcard-ev {
+  opacity: 1;
+  color: var(--muted-on-paper);
 }
 .fan-card .tcard {
   --big: 40px;
@@ -252,8 +332,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fan-card {
+  .fan-card,
+  .fan-card .tcard-inner {
     animation: none;
+    transition: none;
+  }
+  .fan-card.is-up {
+    --up: 0px;
   }
 }
 

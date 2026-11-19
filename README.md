@@ -11,7 +11,7 @@ Tell hides small traps in ordinary web pages, then shows you the moment an AI ag
   Gemini Nano on device, Gemini in the cloud
 </p>
 
-> **Status: in progress.** Built for the Firebase #BuildHybridAI hackathon (deadline 30 Nov 2026). Working now: the home page, the on-device/cloud AI layer, the detection rules, the **live test** (7 trap pages, canary links, live cards) the **prompt drill** and the **check page**. Signed scorecards land over the next days.
+> **Status: in progress.** Built for the Firebase #BuildHybridAI hackathon (deadline 30 Nov 2026). Working now: the home page, the on-device/cloud AI layer, the detection rules, the **live test** (7 trap pages, canary links, live cards), the **prompt drill**, the **check page**, **signed scorecards** (Ed25519, checkable in the browser at /verify) and the **board** of live-tested agents. Signing keys: [docs/signing.md](docs/signing.md).
 
 ## The problem
 

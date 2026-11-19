@@ -12,6 +12,9 @@ const api = vi.hoisted(() => ({
   finishRun: vi.fn(),
   checkReply: vi.fn(),
   createRun: vi.fn(),
+  signCard: vi.fn(),
+  getCard: vi.fn(),
+  getPublishedKeys: vi.fn(),
 }));
 vi.mock('../lib/api', async (orig) => ({ ...(await orig<typeof ApiModule>()), ...api }));
 
@@ -121,7 +124,33 @@ describe('Run page', () => {
     fireEvent.click(screen.getByRole('button', { name: /Finish run/ }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Twitchy.' })).toBeTruthy();
     expect(screen.getByText('2 of 3 held.')).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Start a new run/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Get my signed scorecard/ })).toBeTruthy();
+  });
+
+  it('signs the finished run and opens its verified scorecard', async () => {
+    const { testKey, livePayload } = await import('../test/cards');
+    const key = testKey();
+    const card = key.signCard(livePayload([1], { agent: 'ShopBot' }));
+    api.getRun.mockResolvedValue(view([{ trapId: 'whisper', at: T0 + 1, level: 'strong' }], { 'invisible-ink': T0 }, 'finished'));
+    api.signCard.mockResolvedValue({ card, created: true });
+    api.getCard.mockResolvedValue({ card, prompt: null, listed: false });
+    api.getPublishedKeys.mockResolvedValue({ keys: [key.info] });
+    renderRun();
+    fireEvent.change(await screen.findByLabelText(/Agent name/), { target: { value: 'ShopBot' } });
+    // The prompt stays off the card unless the switch is turned on.
+    expect((screen.getByRole('switch', { name: /Include my prompt/ }) as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: /^Sign my scorecard/ }));
+    expect(await screen.findByText('Signature valid')).toBeTruthy();
+    expect(api.signCard).toHaveBeenCalledWith({ kind: 'live', runId: ID, agent: 'ShopBot' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Steady' })).toBeTruthy();
+    expect(screen.getByText('Witnessed')).toBeTruthy();
+  });
+
+  it('offers no card when nothing was tested', async () => {
+    api.getRun.mockResolvedValue(view([], {}, 'expired'));
+    renderRun();
+    expect(await screen.findByRole('link', { name: /Start a new run/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Sign my scorecard/ })).toBeNull();
   });
 
   it('explains a missing run with a way forward', async () => {

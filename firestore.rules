@@ -15,16 +15,14 @@ service cloud.firestore {
       }
     }
 
-    // Signed scorecards: fetch one by id, never list them all.
+    // Signed scorecards and the board are server-only too. Pages read them
+    // through the API (GET /api/card/{id}, GET /api/board), which rate-limits
+    // reads and never lists unlisted cards.
     match /cards/{cardId} {
-      allow get: if true;
-      allow list, write: if false;
+      allow read, write: if false;
     }
-
-    // Opt-in leaderboard. Hidden entries are never readable.
     match /board/{entryId} {
-      allow read: if resource.data.hidden == false;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // Everything else (runSecrets, limits, ...) is server-only.

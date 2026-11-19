@@ -12,6 +12,12 @@ export const LIMITS = {
   finish: { limit: 60, windowMs: HOUR },
   /** Page fetches for the check page (POST /api/fetch). */
   fetch: { limit: 30, windowMs: HOUR },
+  /** Signing scorecards (POST /api/sign). */
+  sign: { limit: 20, windowMs: HOUR },
+  /** Adding a card to the board (POST /api/board). */
+  boardAdd: { limit: 10, windowMs: HOUR },
+  /** Reading cards and the board. Generous, they're small. */
+  publicRead: { limit: 600, windowMs: HOUR },
   /** Per run, not per IP: how often the run page may poll. Generous, it's cheap. */
   view: { limit: 3000, windowMs: HOUR },
 } as const;

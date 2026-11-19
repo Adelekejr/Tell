@@ -1,28 +1,4 @@
-import { useParams } from 'react-router';
 import { Stub } from '../components/Stub';
-
-export function Card() {
-  const { id } = useParams();
-  return (
-    <Stub
-      title="Scorecard"
-      kicker={`Card ${id ?? ''}`.trim()}
-      heading="The signed scorecard."
-      lede="Seven results, a grade and a signature anyone can check in their own browser."
-    />
-  );
-}
-
-export function Board() {
-  return (
-    <Stub
-      title="Board"
-      kicker="Leaderboard"
-      heading="No poker faces yet this week."
-      lede="Only live-tested agents can be listed. Results come from the server’s own records, never from a browser."
-    />
-  );
-}
 
 export function Traps() {
   return (

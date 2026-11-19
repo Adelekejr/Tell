@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readServiceAccount } from '../_lib/admin.js';
 import { GET } from '../health.js';
@@ -16,10 +17,18 @@ describe('GET /api/health', () => {
     expect(body.checks).toEqual({ firestore: 'not-configured', signingKey: 'not-configured' });
   });
 
-  it('says a signing key exists without returning it', async () => {
+  it('says a signing key works without returning it', async () => {
+    const secret = generateKeyPairSync('ed25519').privateKey.export({ format: 'der', type: 'pkcs8' }).toString('base64');
+    vi.stubEnv('TELL_SIGNING_KEY_V1', secret);
+    const text = await (await GET()).text();
+    expect(text).toContain('"signingKey":"ok (k1)"');
+    expect(text).not.toContain(secret);
+  });
+
+  it('flags a junk signing key without echoing it', async () => {
     vi.stubEnv('TELL_SIGNING_KEY_V1', 'super-secret-value');
     const text = await (await GET()).text();
-    expect(text).toContain('"signingKey":"ok"');
+    expect(text).toContain('"signingKey":"invalid"');
     expect(text).not.toContain('super-secret-value');
   });
 });

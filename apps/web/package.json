@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@noble/ed25519": "^3.2.0",
     "@tell/detector": "workspace:*",
     "@tell/shared": "workspace:*",
     "firebase": "^13.4.0",

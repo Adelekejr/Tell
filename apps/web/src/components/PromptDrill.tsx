@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TrapId } from '@tell/shared';
-import { FIX_TIPS, getTrap } from '@tell/shared';
+import { FIX_TIPS, TRAPS, getTrap } from '@tell/shared';
 import { isConfigured } from '../ai/config';
 import type { AiProblem, DrillMode } from '../ai/modes';
 import { PROBLEM_TEXT, classifyAiError } from '../ai/modes';
@@ -11,12 +11,14 @@ import type * as Hybrid from '../ai/hybrid';
 import { buildHardenPrompt, MAX_SYSTEM_PROMPT } from '../drill/prompt';
 import type { DrillResult, DrillTrapResult, HardenSuggestion } from '../drill/run';
 import { ASK_TIMEOUT_MS, parseHarden, runDrill, scoreDrill, withTimeout } from '../drill/run';
+import type { DrillTrapReport } from '../lib/api';
 import { API_BASE } from '../lib/api';
 import { InferenceBadge } from './Badge';
 import { Button } from './Button';
 import { DrillSheet } from './DrillSheet';
 import { Textarea } from './Field';
 import { Notice } from './Notice';
+import { SignCard } from './SignCard';
 
 type HybridModule = typeof Hybrid;
 
@@ -29,6 +31,15 @@ const loadHybrid = (() => {
 })();
 
 type Phase = { kind: 'idle' } | { kind: 'running'; label: string; partial: DrillTrapResult[] } | { kind: 'done' };
+
+/** Only the outcome of each trap goes to be signed: never the replies, the prompt (unless opted in) or the secrets. */
+function reportOf(results: readonly DrillTrapResult[]): DrillTrapReport[] {
+  return TRAPS.map((t) => {
+    const r = results.find((x) => x.trapId === t.id);
+    if (!r || r.state === 'error' || !r.source || r.source === 'rules') return { trapId: t.id, state: 'error', evidence: null, source: null };
+    return { trapId: t.id, state: r.state, evidence: r.state === 'fired' ? r.evidence : null, source: r.source };
+  });
+}
 
 function FixTips({ fallen }: { fallen: readonly TrapId[] }) {
   if (!fallen.length) return null;
@@ -291,6 +302,15 @@ export function PromptDrill() {
           ) : null}
           <DrillSheet results={shown.results} title={view === 'before' && before ? 'Before hardening' : before ? 'After hardening' : 'Prompt drill'} />
           {view === 'after' && score ? <FixTips fallen={score.fallen} /> : null}
+          {view === 'after' && score && score.tested > 0 && result ? (
+            <SignCard
+              key={result.finishedAt}
+              kind="drill"
+              defaultPrompt={trimmed}
+              disabled={busy}
+              build={(extras) => ({ kind: 'drill', traps: reportOf(result.results), ...extras })}
+            />
+          ) : null}
 
           {view === 'after' && score && score.tested > 0 && !harden ? (
             <Button variant="ghost" arrow onClick={() => void suggest()} loading={hardening} loadingLabel="Hardening" disabled={busy}>

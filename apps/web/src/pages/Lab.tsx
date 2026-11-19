@@ -1,4 +1,5 @@
 import { Suspense, lazy, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { RUN_TTL_MS } from '@tell/shared';
 import { Button } from '../components/Button';
@@ -102,7 +103,8 @@ function LiveTest() {
 
 export function Lab() {
   usePageTitle('Lab');
-  const [tab, setTab] = useState<Tab>('live');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(params.get('tab') === 'drill' ? 'drill' : 'live');
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       const next = tab === 'live' ? 'drill' : 'live';

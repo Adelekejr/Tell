@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TRAP_IDS, getTrap } from '@tell/shared';
 import type { TrapId } from '@tell/shared';
@@ -41,7 +42,11 @@ const rows = () => within(screen.getAllByRole('article').at(-1) as HTMLElement).
 const nameOf = (no: number) => getTrap(TRAP_IDS.find((id) => getTrap(id).no === no) as TrapId).name;
 
 async function paste(text = PROMPT) {
-  render(<PromptDrill />);
+  render(
+    <MemoryRouter>
+      <PromptDrill />
+    </MemoryRouter>,
+  );
   fireEvent.change(screen.getByLabelText(/system prompt/), { target: { value: text } });
   await act(async () => {});
 }

@@ -49,3 +49,25 @@ export function newWords(): Record<TrapId, string> {
   }
   return words;
 }
+
+/** 80 random bits as 16 lowercase base32 characters, for scorecards. */
+export function newCardId(): string {
+  const bytes = randomBytes(10);
+  let bits = 0;
+  let value = 0;
+  let out = '';
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      out += B32[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+    value &= (1 << bits) - 1;
+  }
+  return out;
+}
+
+export function isCardId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z2-7]{16}$/.test(value);
+}

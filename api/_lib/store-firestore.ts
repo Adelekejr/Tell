@@ -2,15 +2,17 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type * as FirestoreModule from 'firebase-admin/firestore';
 import type { ServiceAccount } from './admin.js';
 import { getAdminApp } from './admin.js';
-import type { Hit, TrapId } from './shared.js';
+import type { BoardCell, BoardEntry, GradeId, Hit, SignedCard, TrapId } from './shared.js';
 import { isTrapId } from './shared.js';
-import type { Store, StoredRun, Words } from './store.js';
+import type { Store, StoredCard, StoredRun, Words } from './store.js';
 
 /**
  * Firestore layout (see PLAN 4.4):
  *   runs/{runId}              run metadata, no secret words (clients may `get` it)
  *   runs/{runId}/hits/{hitId} canary hits and pasted-reply echoes
  *   runSecrets/{runId}        the seven secret words, server only
+ *   cards/{cardId}            signed scorecards (kept; no expiry)
+ *   board/{cardId}            opt-in board entries, live cards only
  *   limits/{key_window}       rate-limit counters keyed by a salted IP hash
  * Every doc carries `expireAt` (a Timestamp) so a Firestore TTL policy can
  * delete it after the run ends.
@@ -107,6 +109,74 @@ export class FirestoreStore implements Store {
       if (!snap.exists || typeof (snap.data() as { finishedAt?: unknown }).finishedAt === 'number') return;
       tx.update(runRef, { finishedAt: at, status: 'finished' });
     });
+  }
+
+  async createLiveCard(runId: string, make: () => StoredCard) {
+    const runRef = this.db.collection('runs').doc(runId);
+    return this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(runRef);
+      if (!snap.exists) return null;
+      const cardId = (snap.data() as { cardId?: unknown }).cardId;
+      if (typeof cardId === 'string') {
+        const existing = await tx.get(this.db.collection('cards').doc(cardId));
+        if (existing.exists) return { stored: this.toStored(existing.data() as Record<string, unknown>), created: false };
+      }
+      const stored = make();
+      tx.create(this.db.collection('cards').doc(stored.card.payload.id), this.fromStored(stored));
+      tx.update(runRef, { cardId: stored.card.payload.id });
+      return { stored, created: true };
+    });
+  }
+
+  async createCard(card: StoredCard): Promise<void> {
+    await this.db.collection('cards').doc(card.card.payload.id).create(this.fromStored(card));
+  }
+
+  async getCard(id: string): Promise<StoredCard | null> {
+    const snap = await this.db.collection('cards').doc(id).get();
+    return snap.exists ? this.toStored(snap.data() as Record<string, unknown>) : null;
+  }
+
+  async addToBoard(entry: BoardEntry): Promise<'added' | 'exists'> {
+    const ref = this.db.collection('board').doc(entry.cardId);
+    const cardRef = this.db.collection('cards').doc(entry.cardId);
+    return this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.exists) return 'exists' as const;
+      tx.create(ref, { ...entry, cells: entry.cells.join(''), hidden: false });
+      tx.update(cardRef, { listed: true });
+      return 'added' as const;
+    });
+  }
+
+  async listBoard(limit: number): Promise<BoardEntry[]> {
+    const snap = await this.db.collection('board').where('hidden', '==', false).orderBy('at', 'desc').limit(limit).get();
+    return snap.docs.map((doc) => {
+      const d = doc.data() as Record<string, unknown>;
+      return {
+        cardId: doc.id,
+        name: String(d.name ?? ''),
+        held: Number(d.held),
+        tested: Number(d.tested),
+        grade: d.grade as GradeId,
+        cells: String(d.cells ?? '').split('') as BoardCell[],
+        at: Number(d.at),
+      };
+    });
+  }
+
+  /** Cards are stored as the signed JSON string, so the signed bytes never drift through Firestore types. */
+  private fromStored(c: StoredCard) {
+    return { signed: JSON.stringify(c.card), prompt: c.prompt, runId: c.runId, listed: c.listed, kind: c.card.payload.kind, issuedAt: c.card.payload.issuedAt };
+  }
+
+  private toStored(d: Record<string, unknown>): StoredCard {
+    return {
+      card: JSON.parse(String(d.signed)) as SignedCard,
+      prompt: typeof d.prompt === 'string' ? d.prompt : null,
+      runId: typeof d.runId === 'string' ? d.runId : null,
+      listed: d.listed === true,
+    };
   }
 
   async take(key: string, limit: number, windowMs: number, now: number): Promise<boolean> {

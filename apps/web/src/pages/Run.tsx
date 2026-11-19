@@ -6,6 +6,7 @@ import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Textarea } from '../components/Field';
 import { Notice } from '../components/Notice';
+import { SignCard } from '../components/SignCard';
 import { TaskBox } from '../components/TaskBox';
 import { TrapCard } from '../components/TrapCard';
 import { ApiError, checkReply, finishRun } from '../lib/api';
@@ -149,6 +150,8 @@ export function Run() {
   const announcement = useAnnouncements(run);
   const finished = run ? run.status !== 'open' : false;
   const head = useMemo(() => (run ? headline(run) : null), [run]);
+  // A card can be signed once the run is closed and at least one trap was tested.
+  const canSign = run !== null && run.status !== 'open' && run.tally.waiting < run.cards.length;
 
   if (!run) {
     const missing = !validId || error?.status === 404;
@@ -243,6 +246,7 @@ export function Run() {
         <aside className="run-side">
           <Timeline events={run.events} />
           {run.status === 'open' ? <ReplyBox run={run} onRun={replace} /> : null}
+          {canSign ? <SignCard kind="live" build={(extras) => ({ kind: 'live', runId: run.id, ...extras })} /> : null}
           <details className="run-task">
             <summary className="small">Show the task for your agent again</summary>
             <TaskBox task={run.task} />
@@ -263,8 +267,21 @@ export function Run() {
             >
               Finish run
             </Button>
+          ) : canSign ? (
+            <Button
+              variant="accent"
+              arrow
+              sub="Signed, so anyone can check it"
+              onClick={() => {
+                const form = document.getElementById('sign');
+                form?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+                form?.querySelector('input')?.focus({ preventScroll: true });
+              }}
+            >
+              Get my signed scorecard
+            </Button>
           ) : (
-            <Button to="/lab" arrow sub="Signed scorecards arrive in the next update">
+            <Button to="/lab" arrow sub="Nothing was tested, so there is no card to sign">
               Start a new run
             </Button>
           )}

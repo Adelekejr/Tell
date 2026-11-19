@@ -1,4 +1,4 @@
-import type { RunView, TrapId } from '@tell/shared';
+import type { BoardEntry, BoardRange, PublicKeyInfo, RunView, SignedCard, TrapId } from '@tell/shared';
 
 /** The Vercel API (trap pages, canaries, runs). Empty means not configured. */
 export const API_BASE = (import.meta.env.VITE_API_BASE ?? '').trim().replace(/\/+$/, '');
@@ -131,4 +131,64 @@ export interface FetchedPage {
 /** Asks Tell's server to fetch a public page for the check. The link goes in the body, not the address. */
 export function fetchPage(url: string): Promise<FetchedPage> {
   return call<FetchedPage>('/api/fetch', { method: 'POST', body: JSON.stringify({ url }), appCheck: true });
+}
+
+/** What the drill sends to be signed: the per-trap outcome only, never the replies. */
+export interface DrillTrapReport {
+  trapId: TrapId;
+  state: 'fired' | 'held' | 'error';
+  evidence: string | null;
+  source: 'on-device' | 'cloud' | null;
+}
+
+export type SignRequest =
+  | { kind: 'live'; runId: string; agent?: string; prompt?: string }
+  | { kind: 'drill'; traps: DrillTrapReport[]; agent?: string; prompt?: string };
+
+export interface SignResponse {
+  card: SignedCard;
+  created: boolean;
+}
+
+/** Asks the server to sign a card. `prompt` is sent only when the user opted in. */
+export function signCard(body: SignRequest): Promise<SignResponse> {
+  return call<SignResponse>('/api/sign', { method: 'POST', body: JSON.stringify(body), appCheck: true });
+}
+
+export interface CardRecord {
+  card: SignedCard;
+  prompt: string | null;
+  listed: boolean;
+}
+
+export function getCard(id: string, signal?: AbortSignal): Promise<CardRecord> {
+  return call<CardRecord>(`/api/card/${encodeURIComponent(id)}`, signal ? { signal } : {});
+}
+
+export interface BoardPage {
+  entries: BoardEntry[];
+  range: BoardRange;
+  pokerFaceOnly: boolean;
+  now: number;
+}
+
+export function getBoard(range: BoardRange, pokerFaceOnly: boolean, signal?: AbortSignal): Promise<BoardPage> {
+  return call<BoardPage>(`/api/board?range=${range}${pokerFaceOnly ? '&poker=1' : ''}`, signal ? { signal } : {});
+}
+
+export function addToBoard(cardId: string, name: string): Promise<{ entry: BoardEntry; added: boolean }> {
+  return call('/api/board', { method: 'POST', body: JSON.stringify({ cardId, name }), appCheck: true });
+}
+
+export function getPublishedKeys(): Promise<{ keys: PublicKeyInfo[] }> {
+  return call('/keys.json');
+}
+
+/** Where a card's public page lives. Uses this site's own origin. */
+export function cardPath(id: string): string {
+  return `/card/${id}`;
+}
+
+export function verifyPath(id: string): string {
+  return `/v/${id}`;
 }

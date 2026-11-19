@@ -11,6 +11,7 @@ coverage/
 !.env.example
 *.pem
 service-account*.json
+.secrets/
 *-firebase-adminsdk-*.json
 
 # Tooling

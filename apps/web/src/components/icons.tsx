@@ -101,3 +101,11 @@ export function CheckIcon(p: P) {
     </svg>
   );
 }
+
+export function ShareIcon(p: P) {
+  return (
+    <svg {...base} fill="none" stroke="currentColor" strokeWidth="1.5" {...p}>
+      <path d="M8 10V2M5 5l3-3 3 3M3 8.5V14h10V8.5" />
+    </svg>
+  );
+}

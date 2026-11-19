@@ -5,7 +5,10 @@ import { Home } from './pages/Home';
 import { Lab } from './pages/Lab';
 import { Run } from './pages/Run';
 import { Check } from './pages/Check';
-import { Board, Card, Docs, How, NotFound, Traps } from './pages/stubs';
+import { Board } from './pages/Board';
+import { Scorecard } from './pages/Scorecard';
+import { Verify } from './pages/Verify';
+import { Docs, How, NotFound, Traps } from './pages/stubs';
 
 export const routes: RouteObject[] = [
   {
@@ -14,7 +17,9 @@ export const routes: RouteObject[] = [
       { index: true, element: <Home /> },
       { path: 'lab', element: <Lab /> },
       { path: 'run/:id', element: <Run /> },
-      { path: 'card/:id', element: <Card /> },
+      { path: 'card/:id', element: <Scorecard /> },
+      { path: 'v/:id', element: <Verify /> },
+      { path: 'verify', element: <Verify /> },
       { path: 'check', element: <Check /> },
       { path: 'board', element: <Board /> },
       { path: 'traps', element: <Traps /> },

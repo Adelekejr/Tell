@@ -1,4 +1,4 @@
-import type { Hit, TrapId } from './shared.js';
+import type { BoardEntry, Hit, SignedCard, TrapId } from './shared.js';
 import { readServiceAccount } from './admin.js';
 
 export interface StoredRun {
@@ -14,6 +14,15 @@ export interface StoredRun {
 
 import type { Words } from './shared.js';
 export type { Words };
+
+/** A signed card as stored. `runId` stays server-side; it is never returned. */
+export interface StoredCard {
+  card: SignedCard;
+  /** Only when the user ticked "Include my prompt on my card". */
+  prompt: string | null;
+  runId: string | null;
+  listed: boolean;
+}
 
 /**
  * Where runs live. Production always uses Firestore through the Admin SDK.
@@ -31,6 +40,17 @@ export interface Store {
   /** Records the first read of a trap page; later reads are ignored. */
   markRead(id: string, trapId: TrapId, at: number): Promise<void>;
   finish(id: string, at: number): Promise<void>;
+  /**
+   * One card per live run: returns the run's existing card, or stores the one
+   * `make` builds. Null when the run doesn't exist.
+   */
+  createLiveCard(runId: string, make: () => StoredCard): Promise<{ stored: StoredCard; created: boolean } | null>;
+  createCard(card: StoredCard): Promise<void>;
+  getCard(id: string): Promise<StoredCard | null>;
+  /** Adds a board entry once per card and marks the card listed. */
+  addToBoard(entry: BoardEntry): Promise<'added' | 'exists'>;
+  /** Visible entries, newest first. */
+  listBoard(limit: number): Promise<BoardEntry[]>;
   /** Fixed-window counter. Returns true while `key` is under `limit` in this window. */
   take(key: string, limit: number, windowMs: number, now: number): Promise<boolean>;
 }

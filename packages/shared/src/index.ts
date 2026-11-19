@@ -4,3 +4,6 @@ export * from './inference.js';
 export * from './run.js';
 export * from './trap-pages.js';
 export * from './reply.js';
+export * from './bytes.js';
+export * from './scorecard.js';
+export * from './board.js';

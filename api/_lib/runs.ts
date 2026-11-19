@@ -13,6 +13,11 @@ export function isExpired(run: StoredRun, now: number): boolean {
   return now >= run.expiresAt;
 }
 
+/** Finished or expired: the evidence is final and the run can be signed. */
+export function closedRun(run: StoredRun, now: number): boolean {
+  return run.finishedAt !== null || isExpired(run, now);
+}
+
 /** Open = still collecting evidence. */
 export function isOpen(run: StoredRun, now: number): boolean {
   return run.finishedAt === null && !isExpired(run, now);

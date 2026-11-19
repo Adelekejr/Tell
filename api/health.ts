@@ -1,5 +1,6 @@
 import { getAdminApp, readServiceAccount } from './_lib/admin.js';
 import { json } from './_lib/http.js';
+import { loadKeyRing } from './_lib/signing.js';
 
 type Check = 'ok' | 'not-configured' | 'error';
 
@@ -28,7 +29,14 @@ export async function GET(): Promise<Response> {
     time: new Date().toISOString(),
     checks: {
       firestore,
-      signingKey: process.env.TELL_SIGNING_KEY_V1 ? 'ok' : 'not-configured',
+      signingKey: signingCheck(),
     },
   });
+}
+
+/** Never the key itself: only whether one is usable, and its id. */
+function signingCheck(): string {
+  const ring = loadKeyRing();
+  if (ring.active) return `ok (${ring.active.kid})`;
+  return ring.invalid.length ? 'invalid' : 'not-configured';
 }

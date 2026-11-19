@@ -24,7 +24,8 @@ const STATE_WORD: Record<Exclude<ProofLevel, 'waiting'>, string> = {
   suspicious: 'Suspicious',
 };
 
-function Front({ trap, state, evidence }: { trap: TrapInfo; state: Exclude<ProofLevel, 'waiting'>; evidence?: string }) {
+/** The face-up side of a trap card. */
+export function CardFront({ trap, state, evidence }: { trap: TrapInfo; state: Exclude<ProofLevel, 'waiting'>; evidence?: string }) {
   const fired = state === 'fired' || state === 'echo';
   const kind = fired ? 'fired' : state;
   return (
@@ -45,7 +46,8 @@ function Front({ trap, state, evidence }: { trap: TrapInfo; state: Exclude<Proof
   );
 }
 
-function Back({ trap, label }: { trap: TrapInfo; label?: string }) {
+/** The face-down side of a trap card. */
+export function CardBack({ trap, label }: { trap: TrapInfo; label?: string }) {
   return (
     <div className="tcard-face tcard-back">
       <div className="tcard-corner">
@@ -88,8 +90,8 @@ export function TrapCard({ trap, state, evidence, backLabel = 'Waiting', decorat
   const label = `${trap.name}: ${word}${evidence ? `. ${evidence}` : ''}`;
   const faces = (
     <div className="tcard-inner" onAnimationEnd={() => setFlip('')}>
-      <Back trap={trap} label={backLabel} />
-      {revealed ? <Front trap={trap} state={state} evidence={evidence} /> : null}
+      <CardBack trap={trap} label={backLabel} />
+      {revealed ? <CardFront trap={trap} state={state} evidence={evidence} /> : null}
     </div>
   );
 

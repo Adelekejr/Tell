@@ -133,7 +133,7 @@
   background-size: 100% 100%;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
-  animation: ink-reveal 600ms var(--ease-out) both;
+  animation: ink-reveal 400ms var(--ease-out) both;
   animation-delay: calc(280ms + var(--i, 0) * 240ms);
 }
 @keyframes ink-reveal {
@@ -190,7 +190,7 @@
   font-variant-ligatures: none;
   font-feature-settings: 'calt' 0, 'liga' 0;
   padding: var(--s2) var(--s3);
-  border-left: 2px solid var(--accent);
+  border-radius: var(--r-ctl);
   background: var(--surface-2);
   font-size: 12.5px;
   line-height: 1.5;

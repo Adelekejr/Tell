@@ -12,6 +12,7 @@ import { TrapCard } from '../components/TrapCard';
 import { ApiError, checkReply, finishRun } from '../lib/api';
 import { clock } from '../lib/copy';
 import { evidenceFor, headline } from '../lib/runText';
+import { useInView } from '../lib/useInView';
 import { useRun } from '../lib/useRun';
 import { usePageTitle } from '../lib/title';
 
@@ -152,6 +153,8 @@ export function Run() {
   const head = useMemo(() => (run ? headline(run) : null), [run]);
   // A card can be signed once the run is closed and at least one trap was tested.
   const canSign = run !== null && run.status !== 'open' && run.tally.waiting < run.cards.length;
+  // Once the sign form is on screen, the sticky shortcut to it steps aside: one main action per view.
+  const signInView = useInView('sign', canSign);
 
   if (!run) {
     const missing = !validId || error?.status === 404;
@@ -254,7 +257,7 @@ export function Run() {
         </aside>
       </div>
 
-      <div className="sticky-bar">
+      <div className={`sticky-bar${run.status !== 'open' && signInView ? ' is-hidden' : ''}`} aria-hidden={run.status !== 'open' && signInView ? true : undefined}>
         <div className="sticky-inner">
           {finishError ? <Notice role="alert">{finishError}</Notice> : null}
           {run.status === 'open' ? (

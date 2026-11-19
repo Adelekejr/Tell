@@ -1,6 +1,8 @@
 # Signing scorecards
 
-Every scorecard is signed with Ed25519 on the server. Anyone can check a card in their own browser at `/verify`, using the public keys at `/keys.json`.
+**The problem:** a screenshot of a scorecard proves nothing. Anyone could edit the grade or invent a run.
+
+**The fix:** every scorecard is signed with Ed25519 on the server. Anyone can check a card in their own browser at `/verify`, using the public keys at `/keys.json`. Change one character and the check fails.
 
 ## What gets signed
 

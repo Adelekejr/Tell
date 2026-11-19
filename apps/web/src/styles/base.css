@@ -29,6 +29,8 @@ svg {
 }
 a {
   color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
 }
 button,
 input,
@@ -50,8 +52,67 @@ ul {
   background: var(--hl);
   color: var(--ink);
 }
+/* Browser surfaces: scrollbars, native controls, caret, tap flash, disclosure. */
+html {
+  scrollbar-color: color-mix(in srgb, var(--ink) 28%, transparent) transparent;
+  accent-color: var(--accent);
+}
+.dark {
+  scrollbar-color: color-mix(in srgb, var(--paper) 28%, transparent) transparent;
+}
+input,
+textarea {
+  caret-color: var(--accent);
+}
+button,
+a,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::before {
+  content: '';
+  flex: none;
+  width: 0;
+  height: 0;
+  margin-right: 10px;
+  border-block: 4.5px solid transparent;
+  border-left: 6px solid currentColor;
+  transition: transform 200ms var(--ease-out);
+}
+details[open] > summary::before {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  summary::before {
+    transition: none;
+  }
+}
 
 /* ---------- Type ---------- */
+h1,
+h2,
+h3,
+.display,
+.h1,
+.h2,
+.h3,
+.h4 {
+  text-wrap: balance;
+}
+p,
+li {
+  text-wrap: pretty;
+}
 .display {
   font-family: var(--font-display);
   font-weight: 400;
@@ -108,6 +169,11 @@ ul {
   font-size: 13px;
   letter-spacing: -0.01em;
 }
+.mono,
+.label,
+.tag {
+  font-variant-numeric: tabular-nums;
+}
 .highlight {
   background: linear-gradient(transparent 12%, var(--hl) 12%, var(--hl) 88%, transparent 88%);
   color: var(--ink);
@@ -148,6 +214,9 @@ ul {
   border-radius: var(--r-ctl);
   text-decoration: none;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .skip-link:focus {
   top: var(--s3);

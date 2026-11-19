@@ -8,7 +8,7 @@
 .run-grid {
   padding-top: var(--s5);
   padding-bottom: var(--s6);
-  animation: table-in 500ms var(--ease-out) both;
+  animation: table-in 400ms var(--ease-out) both;
 }
 @keyframes table-in {
   from {
@@ -180,6 +180,25 @@
   z-index: 10;
   padding: var(--s3) var(--gutter) calc(var(--s3) + env(safe-area-inset-bottom));
   background: linear-gradient(to bottom, transparent, var(--bg) 28%);
+}
+.sticky-bar {
+  transition:
+    opacity 200ms var(--ease-out),
+    visibility 0s linear 0s;
+}
+.sticky-bar.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 200ms var(--ease-out),
+    visibility 0s linear 200ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sticky-bar,
+  .sticky-bar.is-hidden {
+    transition: none;
+  }
 }
 .sticky-inner {
   display: grid;

@@ -1,0 +1,301 @@
+/* ---------- Home ---------- */
+.hero {
+  overflow-x: clip;
+  padding: var(--s8) var(--gutter) var(--s6);
+}
+.hero .lede {
+  max-width: 34ch;
+  margin-top: var(--s5);
+}
+.doors {
+  display: grid;
+  gap: 10px;
+  padding: 0 var(--gutter) var(--s8);
+}
+
+/* The fan: seven face-down cards dealt on load, one flips to Tell! */
+.fan {
+  position: relative;
+  height: 236px;
+  margin: var(--s6) 0 var(--s2);
+}
+.fan-card {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  width: 118px;
+  margin-left: -59px;
+  transform-origin: 50% 230%;
+  transform: rotate(var(--rot)) translateY(var(--lift, 0px));
+  animation: deal 560ms var(--ease-out) both;
+  animation-delay: calc(var(--i) * 60ms);
+}
+.fan-card .tcard {
+  --big: 40px;
+  --name: 20px;
+  --name-fired: 20px;
+  --pad: 10px;
+  --seal: 34px;
+}
+@keyframes deal {
+  from {
+    opacity: 0;
+    transform: rotate(0deg) translateY(56px) scale(0.94);
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+.steps {
+  padding: 0 var(--gutter) var(--s8);
+}
+.steps ol {
+  margin-top: var(--s4);
+}
+.steps li {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 4px 12px;
+  padding: var(--s5) 0;
+  border-top: 1px solid var(--line);
+}
+.steps li:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.steps .n {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-style: italic;
+  line-height: 0.9;
+}
+.steps p {
+  margin-top: 4px;
+}
+
+.hand-list {
+  display: none;
+}
+
+.hybrid {
+  padding: var(--s10) var(--gutter);
+}
+.hybrid .h2 {
+  margin-top: var(--s4);
+}
+.hybrid p {
+  margin: var(--s4) 0 var(--s6);
+  max-width: 46ch;
+}
+.hybrid-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.hybrid-row:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+@media (min-width: 960px) {
+  .hero {
+    padding-top: 72px;
+    padding-bottom: 64px;
+    border-bottom: 1px solid var(--line);
+    align-items: end;
+  }
+  .hero-copy {
+    grid-column: 1 / 8;
+  }
+  .hero .display {
+    line-height: 0.88;
+    letter-spacing: -0.035em;
+  }
+  .hero .lede {
+    max-width: 540px;
+    margin-top: var(--s8);
+  }
+  .hero .doors {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    max-width: 600px;
+    margin-top: var(--s10);
+    padding: 0;
+  }
+  .hero-fan {
+    grid-column: 8 / 13;
+    align-self: end;
+  }
+  .fan {
+    height: 440px;
+    margin: 0;
+  }
+  .fan-card {
+    bottom: 10px;
+    width: 196px;
+    margin-left: -98px;
+    transform-origin: 50% 170%;
+  }
+  .fan-card .tcard {
+    --big: 64px;
+    --name: 26px;
+    --name-fired: 26px;
+    --pad: 12px;
+    --seal: 46px;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 0 var(--gutter);
+    border-bottom: 1px solid var(--line);
+  }
+  .steps > .label {
+    display: none;
+  }
+  .steps ol {
+    display: contents;
+  }
+  .steps li,
+  .steps li:last-child {
+    display: block;
+    padding: var(--s10) var(--s6) var(--s12);
+    border: 0;
+    border-left: 1px solid var(--line);
+  }
+  .steps li:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .steps .n {
+    font-size: 56px;
+  }
+  .steps .h3 {
+    margin-top: var(--s4);
+  }
+  .steps p {
+    margin-top: var(--s2);
+    font-size: var(--fs-body);
+  }
+
+  .hand-list {
+    display: grid;
+    padding-top: 72px;
+    padding-bottom: 80px;
+  }
+  .hand-list-head {
+    grid-column: 1 / 4;
+  }
+  .hand-list-head .h1 {
+    margin-top: var(--s3);
+  }
+  .hand-list ol {
+    grid-column: 4 / 13;
+    border-bottom: 1px solid var(--line);
+  }
+  .hand-list li {
+    display: grid;
+    grid-template-columns: 60px 1fr 1.6fr 140px;
+    align-items: baseline;
+    gap: 24px;
+    padding: 18px 0;
+    border-top: 1px solid var(--line);
+  }
+  .hand-list .t {
+    font-family: var(--font-display);
+    font-size: 34px;
+    line-height: 1;
+  }
+  .hand-list .d {
+    font-size: 16px;
+    color: var(--muted);
+  }
+  .hand-list li .label {
+    text-align: right;
+  }
+
+  .hybrid {
+    display: grid;
+    align-items: center;
+    padding-top: var(--s16);
+    padding-bottom: var(--s16);
+  }
+  .hybrid-head {
+    grid-column: 1 / 7;
+  }
+  .hybrid .h2 {
+    margin-top: var(--s3);
+    font-size: 52px;
+    line-height: 1;
+  }
+  .hybrid-body {
+    grid-column: 8 / 13;
+  }
+  .hybrid p {
+    margin-top: 0;
+  }
+  .hybrid-rows {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s6);
+  }
+  .hybrid-row,
+  .hybrid-row:last-child {
+    padding: 0;
+    border: 0;
+  }
+  .hybrid-row .where {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fan-card {
+    animation: none;
+  }
+}
+
+/* ---------- Stub pages ---------- */
+.stub {
+  padding: var(--s10) var(--gutter) var(--s16);
+}
+.stub .h1 {
+  margin-top: var(--s4);
+  max-width: 16ch;
+}
+.stub .lede {
+  max-width: 44ch;
+  margin-top: var(--s4);
+}
+.stub-body {
+  display: grid;
+  gap: var(--s6);
+  max-width: 640px;
+  margin-top: var(--s8);
+}
+.stub-actions {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+}
+@media (min-width: 960px) {
+  .stub {
+    padding-top: var(--s16);
+  }
+}
+.device-result {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s5) 0;
+  border-block: 1px solid var(--line);
+}
+.device-answer {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s5);
+  border-radius: var(--r-sheet);
+  background: var(--surface);
+  box-shadow: var(--ring), var(--shadow-card);
+}

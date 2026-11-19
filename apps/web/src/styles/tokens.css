@@ -1,0 +1,104 @@
+/* Tell design tokens. Source: UI-SPEC v1 (paper-led, Ultramarine). */
+:root {
+  /* Primitives */
+  --ink: #0b0b0c;
+  --ink-2: #18181a;
+  --ink-3: #242427;
+  --paper: #f6f5f1;
+  --paper-2: #edebe4;
+  --paper-3: #e2dfd6;
+  --surface-paper: #fbfaf7;
+  --muted-on-paper: #57564f; /* 6.76:1 on paper */
+  --muted-on-ink: #a5a49d; /* 7.87:1 on ink */
+  --line-paper: rgba(11, 11, 12, 0.12);
+  --line-ink: rgba(246, 245, 241, 0.14);
+  --ultra-paper: #3b4bff; /* accent on paper, 5.29:1 */
+  --ultra-ink: #6f7dff; /* accent on ink, 5.67:1 */
+  --ultra-tint: #daddff;
+
+  /* Semantic (paper surface is the default) */
+  --bg: var(--paper);
+  --surface: var(--surface-paper);
+  --surface-2: var(--paper-2);
+  --surface-3: var(--paper-3);
+  --text: var(--ink);
+  --muted: var(--muted-on-paper);
+  --line: var(--line-paper);
+  --accent: var(--ultra-paper);
+  --on-accent: var(--paper);
+  --hl: var(--ultra-tint);
+  --inverse-bg: var(--ink);
+  --inverse-text: var(--paper);
+
+  /* Type */
+  --font-display: 'Instrument Serif', 'Times New Roman', serif;
+  --font-body: 'Schibsted Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --fs-hero: 60px;
+  --fs-h1: 40px;
+  --fs-h2: 28px;
+  --fs-h3: 19px;
+  --fs-body: 17px;
+  --fs-lede: 18px;
+  --fs-small: 14.5px;
+  --fs-label: 11.5px;
+
+  /* Space: 4pt grid */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s8: 32px;
+  --s10: 40px;
+  --s12: 48px;
+  --s16: 64px;
+  --gutter: 20px;
+
+  /* Radius and depth */
+  --r-card: 10px;
+  --r-mini: 5px;
+  --r-ctl: 6px;
+  --r-tag: 3px;
+  --r-sheet: 12px;
+  --ring: inset 0 0 0 1px var(--line);
+  --shadow-card: 0 1px 0 rgba(11, 11, 12, 0.04), 0 6px 16px -8px rgba(11, 11, 12, 0.18);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --t-press: 120ms;
+  --t-fade: 180ms;
+  --t-flip: 450ms;
+}
+
+/* Ink surfaces: the run table, the hybrid band, card backs. */
+.dark {
+  --bg: var(--ink);
+  --surface: var(--ink-2);
+  --surface-2: #202023;
+  --surface-3: #2c2c30;
+  --text: var(--paper);
+  --muted: var(--muted-on-ink);
+  --line: var(--line-ink);
+  --accent: var(--ultra-ink);
+  --on-accent: var(--ink);
+  --hl: var(--ultra-ink);
+  --inverse-bg: var(--paper);
+  --inverse-text: var(--ink);
+  background: var(--bg);
+  color: var(--text);
+}
+
+@media (min-width: 960px) {
+  :root {
+    --fs-hero: 132px;
+    --fs-h1: 54px;
+    --fs-h2: 38px;
+    --fs-h3: 22px;
+    --fs-lede: 21px;
+    --fs-body: 18px;
+    --fs-small: 15.5px;
+    --gutter: 48px;
+  }
+}

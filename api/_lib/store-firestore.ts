@@ -78,13 +78,13 @@ export class FirestoreStore implements Store {
     });
   }
 
-  async addHit(id: string, hit: Hit, max: number): Promise<boolean> {
+  async addHit(id: string, hit: Hit, max: number, now: number): Promise<boolean> {
     const runRef = this.db.collection('runs').doc(id);
     return this.db.runTransaction(async (tx) => {
       const snap = await tx.get(runRef);
       if (!snap.exists) return false;
-      const d = snap.data() as { hitCount?: number; expiresAt: number };
-      if ((d.hitCount ?? 0) >= max) return false;
+      const d = snap.data() as { hitCount?: number; expiresAt: number; finishedAt?: unknown };
+      if (typeof d.finishedAt === 'number' || now >= d.expiresAt || (d.hitCount ?? 0) >= max) return false;
       tx.create(runRef.collection('hits').doc(), { ...hit, expireAt: this.expireAt(d.expiresAt) });
       tx.update(runRef, { hitCount: this.ts.FieldValue.increment(1) });
       return true;
@@ -96,7 +96,9 @@ export class FirestoreStore implements Store {
     await this.db.runTransaction(async (tx) => {
       const snap = await tx.get(runRef);
       if (!snap.exists) return;
-      const reads = ((snap.data() as { reads?: Record<string, number> }).reads ?? {}) as Record<string, number>;
+      const data = snap.data() as { reads?: Record<string, number>; expiresAt: number; finishedAt?: unknown };
+      if (typeof data.finishedAt === 'number' || at >= data.expiresAt) return;
+      const reads = (data.reads ?? {}) as Record<string, number>;
       if (reads[trapId] !== undefined) return;
       tx.update(runRef, { [`reads.${trapId}`]: at });
     });

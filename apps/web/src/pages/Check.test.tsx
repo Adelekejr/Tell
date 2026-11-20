@@ -29,6 +29,24 @@ const EXPLAINED = JSON.stringify({
   ],
 });
 
+type PageResponse = {
+  url: string;
+  contentType: string;
+  kind: 'html';
+  body: string;
+  bytes: number;
+  redirects: number;
+  stylesheets: number;
+};
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 async function open() {
   render(
     <MemoryRouter>
@@ -81,6 +99,26 @@ describe('Check page', () => {
     expect(within(cards[0] as HTMLElement).getByText('On-device')).toBeTruthy();
     // No App Check key yet, so it stays on this device.
     expect(m.askExplain.mock.calls[0]?.[1]).toBe('device');
+  });
+
+  it('ignores an older fetched page before any UI or explanation side effects', async () => {
+    const older = deferred<PageResponse>();
+    m.fetchPage.mockReturnValueOnce(older.promise);
+    await open();
+
+    type('https://older.example/page');
+    await submit();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Try an example' })));
+    expect(await screen.findByText('This recipe hides two sales pitches aimed at AI assistants.')).toBeTruthy();
+    expect(screen.getByText('Example page (made up, checked in this browser)')).toBeTruthy();
+
+    await act(async () => {
+      older.resolve({ url: 'https://older.example/page', contentType: 'text/html', kind: 'html', body: EXAMPLE_HTML, bytes: 900, redirects: 0, stylesheets: 0 });
+      await older.promise;
+    });
+    expect(screen.getByText('Example page (made up, checked in this browser)')).toBeTruthy();
+    expect(screen.queryByText(/From older.example/)).toBeNull();
+    expect(m.askExplain).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the rules even when the model says nothing useful', async () => {

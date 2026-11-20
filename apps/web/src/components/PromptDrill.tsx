@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import type { TrapId } from '@tell/shared';
 import { FIX_TIPS, SAMPLE_STRONG_PROMPT, SAMPLE_WEAK_PROMPT, TRAPS, getTrap } from '@tell/shared';
 import { isConfigured } from '../ai/config';
@@ -7,10 +7,9 @@ import { PROBLEM_TEXT, classifyAiError } from '../ai/modes';
 import { checkPrompt } from '../drill/checklist';
 import { DEVICE_TEXT, cloudReady, pickEngine } from '../drill/engine';
 import { checkDeviceAvailability } from '../ai/source';
-import type { DeviceAvailability } from '../ai/source';
 import type * as Hybrid from '../ai/hybrid';
 import { buildHardenPrompt, MAX_SYSTEM_PROMPT } from '../drill/prompt';
-import type { DrillResult, DrillTrapResult, HardenSuggestion } from '../drill/run';
+import type { DrillResult, DrillTrapResult } from '../drill/run';
 import { ASK_TIMEOUT_MS, parseHarden, runDrill, scoreDrill, withTimeout } from '../drill/run';
 import type { DrillTrapReport } from '../lib/api';
 import { API_BASE } from '../lib/api';
@@ -21,6 +20,18 @@ import { Textarea } from './Field';
 import { Notice } from './Notice';
 import { PromptChecklist } from './PromptChecklist';
 import { SignCard } from './SignCard';
+import {
+  adoptStageReducer,
+  compareStageReducer,
+  drillStageReducer,
+  hardenStageReducer,
+  initialAdoptStage,
+  initialCompareStage,
+  initialDrillStage,
+  initialHardenStage,
+  initialModelState,
+  modelReducer,
+} from './prompt-drill-state';
 
 type HybridModule = typeof Hybrid;
 
@@ -38,8 +49,6 @@ const SAMPLES: Record<SampleId, { label: string; prompt: string }> = {
   weak: { label: 'Weak prompt', prompt: SAMPLE_WEAK_PROMPT },
   strong: { label: 'Strong prompt', prompt: SAMPLE_STRONG_PROMPT },
 };
-
-type Phase = { kind: 'idle' } | { kind: 'running'; label: string; partial: DrillTrapResult[] } | { kind: 'done' };
 
 /** Only the outcome of each trap goes to be signed: never the replies, the prompt (unless opted in) or the secrets. */
 function reportOf(results: readonly DrillTrapResult[]): DrillTrapReport[] {
@@ -73,32 +82,41 @@ function FixTips({ fallen }: { fallen: readonly TrapId[] }) {
 export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
   const [prompt, setPrompt] = useState(() => (sample ? SAMPLES[sample].prompt : ''));
   const [allowCloud, setAllowCloud] = useState(false);
-  const [device, setDevice] = useState<DeviceAvailability | null>(null);
-  const [progress, setProgress] = useState<number | null>(null);
-  const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
+  const [model, dispatchModel] = useReducer(modelReducer, initialModelState);
+  const [drillStage, dispatchDrill] = useReducer(drillStageReducer, initialDrillStage);
   const [result, setResult] = useState<DrillResult | null>(null);
   const [before, setBefore] = useState<DrillResult | null>(null);
   const [view, setView] = useState<'after' | 'before'>('after');
-  const [harden, setHarden] = useState<HardenSuggestion | null>(null);
-  const [hardening, setHardening] = useState(false);
-  const [compare, setCompare] = useState<{ device: DrillResult; cloud: DrillResult } | null>(null);
+  const [hardenStage, dispatchHarden] = useReducer(hardenStageReducer, initialHardenStage);
+  const [compareStage, dispatchCompare] = useReducer(compareStageReducer, initialCompareStage);
   const [compareView, setCompareView] = useState<'device' | 'cloud'>('device');
   const [problem, setProblem] = useState<AiProblem | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const downloadRequest = useRef(0);
+  const operationId = useRef(0);
+  const drillRequestId = useRef(0);
+  const [adoptStage, dispatchAdopt] = useReducer(adoptStageReducer, initialAdoptStage);
 
   useEffect(() => {
     let live = true;
-    void checkDeviceAvailability().then((d) => live && setDevice(d));
+    void checkDeviceAvailability().then((d) => live && dispatchModel({ type: 'availability-observed', requestId: 0, availability: d }));
     if (isConfigured) void loadHybrid();
     return () => {
       live = false;
+      operationId.current += 1;
       abort.current?.abort();
     };
   }, []);
 
   const cloudOk = cloudReady();
+  const device = model.availability;
+  const progress = model.download.kind === 'running' ? model.download.progress : null;
   const engine = pickEngine(allowCloud, device, cloudOk);
-  const busy = phase.kind === 'running' || hardening;
+  const harden = hardenStage.kind === 'succeeded' ? hardenStage.suggestion : null;
+  const compare = compareStage.kind === 'succeeded' ? compareStage.compare : compareStage.previous;
+  const hardening = hardenStage.kind === 'running';
+  const drillRunning = drillStage.kind === 'running';
+  const busy = drillRunning || hardening;
   const trimmed = prompt.trim();
   const checklist = trimmed.length >= 20 ? checkPrompt(trimmed) : null;
   const sampleOn = (Object.keys(SAMPLES) as SampleId[]).find((id) => SAMPLES[id].prompt === prompt) ?? null;
@@ -107,94 +125,155 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
   const deviceCanEnable = isConfigured && (device === 'downloadable' || device === 'downloading');
 
   async function enableDevice() {
+    const requestId = ++downloadRequest.current;
     setProblem(null);
-    setProgress(0);
+    dispatchModel({ type: 'download-started', requestId });
     try {
       const m = await loadHybrid();
-      await m.enableDrillOnDevice((v) => setProgress(v));
-      setProgress(null);
-      setDevice(await checkDeviceAvailability());
+      await m.enableDrillOnDevice((v) => dispatchModel({ type: 'download-progress', requestId, progress: v }));
+      const observed = await checkDeviceAvailability();
+      dispatchModel({ type: 'download-succeeded', requestId, availability: observed });
     } catch (e) {
-      setProgress(null);
+      dispatchModel({ type: 'download-failed', requestId });
       setProblem(classifyAiError(e));
     }
   }
 
-  async function drill(systemPrompt: string, mode: DrillMode, label: string): Promise<DrillResult> {
+  async function drill(
+    systemPrompt: string,
+    mode: DrillMode,
+    label: string,
+    ownerId: number,
+    completeStage = true,
+  ): Promise<DrillResult | null> {
     const m = await loadHybrid();
+    if (ownerId !== operationId.current) return null;
+    const requestId = ++drillRequestId.current;
+    abort.current?.abort();
     const ctrl = new AbortController();
     abort.current = ctrl;
     const partial: DrillTrapResult[] = [];
-    setPhase({ kind: 'running', label, partial: [] });
-    const r = await runDrill({
-      systemPrompt,
-      mode,
-      ask: m.askAgent,
-      base: DRILL_BASE,
-      signal: ctrl.signal,
-      onResult: (row) => {
-        partial.push(row);
-        setPhase({ kind: 'running', label, partial: [...partial] });
-      },
-    });
-    return r;
+    dispatchDrill({ type: 'drill-started', requestId, label });
+    try {
+      const r = await runDrill({
+        systemPrompt,
+        mode,
+        ask: m.askAgent,
+        base: DRILL_BASE,
+        signal: ctrl.signal,
+        onResult: (row) => {
+          if (ownerId !== operationId.current) return;
+          partial.push(row);
+          dispatchDrill({ type: 'drill-progress', requestId, partial: [...partial] });
+        },
+      });
+      if (ownerId !== operationId.current) return null;
+      if (completeStage) dispatchDrill({ type: 'drill-succeeded', requestId, result: r });
+      return r;
+    } catch (e) {
+      if (ownerId === operationId.current) {
+        dispatchDrill({ type: 'drill-failed', requestId, problem: classifyAiError(e) });
+      }
+      throw e;
+    }
   }
 
-  async function run(systemPrompt = trimmed, keepBefore = false) {
-    if (!engine.mode) return;
+  async function run(
+    systemPrompt = trimmed,
+    keepBefore = false,
+    ownerId = ++operationId.current,
+    throwErrors = false,
+  ): Promise<DrillResult | null> {
+    if (!engine.mode) {
+      if (throwErrors) throw new Error('No drill engine is available.');
+      return null;
+    }
+    if (adoptStage.kind === 'running' && adoptStage.requestId !== ownerId) dispatchAdopt({ type: 'adopt-reset' });
+    abort.current?.abort();
     setProblem(null);
-    setCompare(null);
+    dispatchCompare({ type: 'compare-reset' });
     try {
-      const r = await drill(systemPrompt, engine.mode, 'Prompt drill');
+      const r = await drill(systemPrompt, engine.mode, 'Prompt drill', ownerId);
+      if (!r || ownerId !== operationId.current) return null;
       setBefore(keepBefore ? (before ?? result) : null);
       setView('after');
       setResult(r);
       setProblem(r.problem);
-      if (!keepBefore) setHarden(null);
+      if (!keepBefore) dispatchHarden({ type: 'harden-reset' });
+      return r;
     } catch (e) {
-      setProblem(classifyAiError(e));
-    } finally {
-      setPhase({ kind: 'done' });
+      if (ownerId === operationId.current) setProblem(classifyAiError(e));
+      if (throwErrors) throw e;
+      return null;
     }
   }
 
   async function suggest() {
     if (!engine.mode || !result) return;
+    const requestId = ++operationId.current;
+    if (adoptStage.kind === 'running') dispatchAdopt({ type: 'adopt-reset' });
+    dispatchCompare({ type: 'compare-cancel' });
+    abort.current?.abort();
     setProblem(null);
-    setHardening(true);
+    dispatchHarden({ type: 'harden-started', requestId });
     try {
       const m = await loadHybrid();
       const answer = await withTimeout(
         m.askHarden(buildHardenPrompt(trimmed, scoreDrill(result.results).fallen), engine.mode),
         ASK_TIMEOUT_MS,
       );
+      if (requestId !== operationId.current) return;
       const s = parseHarden(answer.text, answer.source);
-      if (s) setHarden(s);
-      else setProblem('bad-output');
+      if (s) {
+        dispatchHarden({ type: 'harden-succeeded', requestId, suggestion: s });
+      } else {
+        dispatchHarden({ type: 'harden-failed', requestId, problem: 'bad-output' });
+        setProblem('bad-output');
+      }
     } catch (e) {
-      setProblem(classifyAiError(e));
-    } finally {
-      setHardening(false);
+      if (requestId !== operationId.current) return;
+      const failure = classifyAiError(e);
+      dispatchHarden({ type: 'harden-failed', requestId, problem: failure });
+      setProblem(failure);
     }
   }
 
   async function adoptHardened() {
-    if (!harden) return;
+    if (!harden || adoptStage.kind === 'running') return;
+    const requestId = ++operationId.current;
+    abort.current?.abort();
+    dispatchAdopt({ type: 'adopt-started', requestId });
     setPrompt(harden.prompt);
-    await run(harden.prompt, true);
+    try {
+      const completed = await run(harden.prompt, true, requestId, true);
+      if (requestId !== operationId.current || !completed) return;
+      dispatchAdopt({ type: 'adopt-succeeded', requestId });
+    } catch (e) {
+      if (requestId !== operationId.current) return;
+      const failure = classifyAiError(e);
+      dispatchAdopt({ type: 'adopt-failed', requestId, problem: failure });
+      setProblem(failure);
+    }
   }
 
   async function runCompare() {
+    const requestId = ++operationId.current;
+    if (adoptStage.kind === 'running') dispatchAdopt({ type: 'adopt-reset' });
+    abort.current?.abort();
+    dispatchCompare({ type: 'compare-started', requestId });
     setProblem(null);
     try {
-      const d = await drill(trimmed, 'device', 'On-device');
-      const c = await drill(trimmed, 'cloud', 'Cloud');
-      setCompare({ device: d, cloud: c });
+      const d = await drill(trimmed, 'device', 'On-device', requestId, false);
+      if (!d || requestId !== operationId.current) return;
+      const c = await drill(trimmed, 'cloud', 'Cloud', requestId, true);
+      if (!c || requestId !== operationId.current) return;
+      dispatchCompare({ type: 'compare-succeeded', requestId, compare: { device: d, cloud: c } });
       setCompareView('device');
     } catch (e) {
-      setProblem(classifyAiError(e));
-    } finally {
-      setPhase({ kind: 'done' });
+      if (requestId !== operationId.current) return;
+      const failure = classifyAiError(e);
+      dispatchCompare({ type: 'compare-failed', requestId, problem: failure });
+      setProblem(failure);
     }
   }
 
@@ -291,8 +370,8 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
           arrow
           onClick={() => void run()}
           disabled={!canRun}
-          loading={phase.kind === 'running'}
-          loadingLabel={phase.kind === 'running' ? `Drilling ${Math.min(phase.partial.length + 1, 7)}/7` : undefined}
+          loading={drillRunning}
+          loadingLabel={drillStage.kind === 'running' ? `Drilling ${Math.min(drillStage.partial.length + 1, 7)}/7` : undefined}
         >
           Run the drill
         </Button>
@@ -307,11 +386,11 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
         </Notice>
       ) : null}
 
-      {phase.kind === 'running' ? (
-        <DrillSheet results={phase.partial} title={phase.label} pending={7 - phase.partial.length} />
+      {drillStage.kind === 'running' ? (
+        <DrillSheet results={drillStage.partial} title={drillStage.label} pending={7 - drillStage.partial.length} />
       ) : null}
 
-      {phase.kind !== 'running' && shown ? (
+      {drillStage.kind !== 'running' && shown ? (
         <div className="drill-result">
           {before ? (
             <div className="seg seg-sm" role="group" aria-label="Which prompt">
@@ -370,7 +449,7 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
         </div>
       ) : null}
 
-      {compare && phase.kind !== 'running' ? (
+      {compare && drillStage.kind !== 'running' ? (
         <div className="drill-compare">
           <p className="label">Same prompt, two models</p>
           <div className="seg seg-sm drill-compare-seg" role="group" aria-label="Which model">

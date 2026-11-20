@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useReducer, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useParams } from 'react-router';
 import type { CardPayload, SignedCard } from '@tell/shared';
@@ -12,6 +12,7 @@ import { Input } from '../components/Field';
 import { Notice } from '../components/Notice';
 import { ScoreSheet } from '../components/ScoreSheet';
 import { CheckIcon, CopyIcon, ShareIcon } from '../components/icons';
+import { initialSubmissionState, submissionReducer } from '../components/submission-state';
 import { ApiError, addToBoard, verifyPath } from '../lib/api';
 import { copyText } from '../lib/copy';
 import { usePageTitle } from '../lib/title';
@@ -67,23 +68,37 @@ async function saveImage(p: CardPayload, url: string, sample = false): Promise<b
 
 function BoardForm({ card, onAdded }: { card: SignedCard; onAdded: () => void }) {
   const [name, setName] = useState(card.payload.agent ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [submission, dispatch] = useReducer(submissionReducer, initialSubmissionState);
+  const nextRequestId = useRef(0);
+  const activeRequest = useRef<number | null>(null);
+  const busy = submission.status === 'submitting';
+  const error = submission.status === 'validation-error' || submission.status === 'error' ? submission.message : null;
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (activeRequest.current !== null) return;
+    const requestId = ++nextRequestId.current;
+    activeRequest.current = requestId;
+    dispatch({ type: 'begin', requestId });
     const check = checkAgentName(name);
     if (!check.ok) {
-      setError(check.reason);
+      dispatch({ type: 'validation-error', requestId, message: check.reason });
+      activeRequest.current = null;
       return;
     }
-    setBusy(true);
-    setError(null);
     try {
       await addToBoard(card.payload.id, check.name);
+      if (activeRequest.current !== requestId) return;
+      dispatch({ type: 'success', requestId });
+      activeRequest.current = null;
       onAdded();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Couldn\u2019t add it. Retry in a moment.');
-      setBusy(false);
+      if (activeRequest.current !== requestId) return;
+      dispatch({
+        type: 'failure',
+        requestId,
+        message: err instanceof ApiError ? err.message : 'Couldn\u2019t add it. Retry in a moment.',
+      });
+      activeRequest.current = null;
     }
   }
   return (

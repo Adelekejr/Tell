@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useReducer, useRef } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { SignedCard } from '@tell/shared';
@@ -15,6 +15,7 @@ import { Notice } from '../components/Notice';
 import { AlertIcon, HeldIcon } from '../components/icons';
 import { cardPath, verifyPath } from '../lib/api';
 import { usePageTitle } from '../lib/title';
+import { initialPasteCheckState, pasteCheckReducer } from './verify-state';
 
 const WHY: Record<Exclude<Verdict, { status: 'valid' }>['reason'], string> = {
   malformed: 'This isn\u2019t a Tell card, or some of its fields were changed into something a card can\u2019t hold.',
@@ -114,24 +115,33 @@ function Result({ card, check }: { card: SignedCard | null; check: Check }) {
 
 function PasteCheck() {
   const navigate = useNavigate();
-  const [text, setText] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ card: SignedCard | null; check: Check } | null>(null);
+  const [state, dispatch] = useReducer(pasteCheckReducer, initialPasteCheckState);
+  const requestId = useRef(0);
+  const request = useRef<AbortController | null>(null);
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const read = readPasted(text);
+    const id = ++requestId.current;
+    request.current?.abort();
+    request.current = null;
+    const read = readPasted(state.text);
     if (!read) {
-      setError('Paste a verify link or the card\u2019s JSON.');
+      dispatch({ type: 'invalid', error: 'Paste a verify link or the card\u2019s JSON.', requestId: id });
       return;
     }
-    setError(null);
     if ('id' in read) {
       navigate(verifyPath(read.id));
       return;
     }
-    setResult({ card: null, check: { status: 'checking' } });
+    const controller = new AbortController();
+    request.current = controller;
+    dispatch({ type: 'checking', requestId: id });
     const { verdict, promptOk } = await checkCard(read.card, null);
-    setResult({ card: verdict.status === 'valid' ? (read.card as SignedCard) : null, check: { status: 'done', verdict, promptOk } });
+    if (controller.signal.aborted || id !== requestId.current) return;
+    dispatch({
+      type: 'done',
+      requestId: id,
+      result: { card: verdict.status === 'valid' ? (read.card as SignedCard) : null, check: { status: 'done', verdict, promptOk } },
+    });
   }
   return (
     <form className="verify-paste" onSubmit={(e) => void submit(e)} noValidate>
@@ -139,17 +149,17 @@ function PasteCheck() {
         label="Check a card yourself"
         mono
         rows={4}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
+        value={state.text}
+        onChange={(e) => dispatch({ type: 'text', text: e.target.value })}
         placeholder={'A verify link, or the card JSON ({"payload": \u2026, "sig": \u2026})'}
-        error={error ?? undefined}
+        error={state.error ?? undefined}
         hint={'Checked in this browser. Pasted JSON isn\u2019t sent anywhere.'}
         spellCheck={false}
       />
       <Button type="submit" variant="ghost" size="sm" arrow>
         Check signature
       </Button>
-      {result ? <Result card={result.card} check={result.check} /> : null}
+      {state.status === 'checking' ? <Result card={null} check={{ status: 'checking' }} /> : state.result ? <Result card={state.result.card} check={state.result.check} /> : null}
     </form>
   );
 }

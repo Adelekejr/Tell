@@ -36,10 +36,10 @@ export class MemoryStore implements Store {
     return (this.hits.get(id) ?? []).map((h) => ({ ...h }));
   }
 
-  async addHit(id: string, hit: Hit, max: number): Promise<boolean> {
+  async addHit(id: string, hit: Hit, max: number, now: number): Promise<boolean> {
     const run = this.runs.get(id);
     const list = this.hits.get(id);
-    if (!run || !list || run.hitCount >= max) return false;
+    if (!run || !list || run.finishedAt !== null || now >= run.expiresAt || run.hitCount >= max) return false;
     list.push({ ...hit });
     run.hitCount += 1;
     return true;
@@ -47,7 +47,7 @@ export class MemoryStore implements Store {
 
   async markRead(id: string, trapId: TrapId, at: number): Promise<void> {
     const run = this.runs.get(id);
-    if (run && run.reads[trapId] === undefined) run.reads[trapId] = at;
+    if (run && run.finishedAt === null && at < run.expiresAt && run.reads[trapId] === undefined) run.reads[trapId] = at;
   }
 
   async finish(id: string, at: number): Promise<void> {

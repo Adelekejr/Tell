@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer } from 'react';
 import type { ProofLevel, TrapInfo } from '@tell/shared';
 import { trapNumber } from '@tell/shared';
 import markDark from '../assets/brand/fault-mark-dark.svg';
 import { tick } from '../lib/motion';
 import { FiredIcon, HeldIcon, SuspiciousIcon } from './icons';
+import { canTransitionTrapCard, initialTrapCardState, trapCardReducer } from './trap-card-state';
 
 export interface TrapCardProps {
   trap: TrapInfo;
@@ -68,30 +69,25 @@ export function CardBack({ trap, label }: { trap: TrapInfo; label?: string }) {
  * reloaded run shows results without replaying every flip.
  */
 export function TrapCard({ trap, state, evidence, backLabel = 'Waiting', decorative, onClick }: TrapCardProps) {
-  const revealed = state !== 'waiting';
-  const prev = useRef(state);
-  const [flip, setFlip] = useState<'' | 'is-flipping' | 'is-reflipping'>('');
+  const [card, dispatch] = useReducer(trapCardReducer, state, initialTrapCardState);
+  const visibleState = canTransitionTrapCard(card.level, state) ? state : card.level;
 
   useEffect(() => {
-    const was = prev.current;
-    prev.current = state;
-    if (was === state) return;
-    const firedNow = state === 'fired' || state === 'echo';
-    const firedBefore = was === 'fired' || was === 'echo';
-    if (was === 'waiting' && state !== 'waiting') setFlip('is-flipping');
-    // A held or suspicious card that later fires turns over once more to land on Tell!
-    else if (was !== 'waiting' && firedNow && !firedBefore) setFlip('is-reflipping');
-    else return;
-    if (!decorative && firedNow) tick();
-  }, [state, decorative]);
+    dispatch({ type: 'receive', level: state });
+  }, [state]);
 
-  const className = ['tcard', revealed ? 'is-flipped' : '', flip].filter(Boolean).join(' ');
-  const word = revealed ? STATE_WORD[state] : 'Waiting';
+  useEffect(() => {
+    if (card.animation && !decorative && (card.level === 'fired' || card.level === 'echo')) tick();
+  }, [card.animation, card.level, decorative]);
+
+  const revealed = visibleState !== 'waiting';
+  const className = ['tcard', revealed ? 'is-flipped' : '', card.animation].filter(Boolean).join(' ');
+  const word = revealed ? STATE_WORD[visibleState] : 'Waiting';
   const label = `${trap.name}: ${word}${evidence ? `. ${evidence}` : ''}`;
   const faces = (
-    <div className="tcard-inner" onAnimationEnd={() => setFlip('')}>
+    <div className="tcard-inner" onAnimationEnd={() => dispatch({ type: 'animation-ended' })}>
       <CardBack trap={trap} label={backLabel} />
-      {revealed ? <CardFront trap={trap} state={state} evidence={evidence} /> : null}
+      {revealed ? <CardFront trap={trap} state={visibleState} evidence={evidence} /> : null}
     </div>
   );
 

@@ -3,7 +3,7 @@ import { identifyClient, isNonVisit } from '../_lib/bots.js';
 import { isRunId, newRunId, newWords } from '../_lib/ids.js';
 import { ipKey } from '../_lib/limits.js';
 import { checkReply, normaliseReply } from '../_lib/reply.js';
-import { classifyCanary } from '../_lib/runs.js';
+import { classifyCanary, recordCanary } from '../_lib/runs.js';
 import type { RunView } from '../_lib/shared.js';
 import { HOLD_AFTER_MS, RUN_TTL_MS, TRAP_IDS, decideCard, scoreOf, tallyOf } from '../_lib/shared.js';
 import { getStore, memoryStoreAllowed, resetStoreForTests } from '../_lib/store.js';
@@ -262,6 +262,18 @@ describe('endpoints, end to end on the dev store', () => {
     // Finished runs ignore late hits.
     await canary(req(`/c/${run.id}/1?w=${await wordFor(run.id, 1)}`));
     expect((await state(run.id)).cards[0]?.state).toBe('held');
+  });
+
+  it('rejects evidence from a stale open snapshot after the run finishes', async () => {
+    const run = await newRun();
+    const store = await getStore();
+    const stale = await store!.getRun(run.id);
+    const words = await store!.getWords(run.id);
+    expect(stale?.finishedAt).toBeNull();
+    await finishRoute(req(`/api/run/${run.id}/finish`, { method: 'POST' }));
+    const now = Date.now();
+    expect(await recordCanary(store!, stale!, 'whisper', words!, { given: words!.whisper, userAgent: CHROME, leakLength: 0 }, now)).toBeNull();
+    expect(await store!.listHits(run.id)).toEqual([]);
   });
 
   it('expired runs serve no trap and ignore canaries', async () => {

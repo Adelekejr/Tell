@@ -60,13 +60,14 @@ describe('Run page', () => {
     api.getRun.mockResolvedValue(view());
     const { container } = renderRun();
     expect(await screen.findByRole('heading', { level: 1, name: 'Cards are dealt.' })).toBeTruthy();
+    expect(screen.getByText('Give this link to your AI agent.')).toBeTruthy();
     expect(container.querySelector('.page.dark')).toBeTruthy();
     expect(container.querySelectorAll('.tcard')).toHaveLength(7);
     expect(container.querySelectorAll('.tcard.is-flipped')).toHaveLength(0);
     expect(screen.getByRole('button', { name: /Finish run/ }).textContent).toContain('7 still face down');
   });
 
-  it('flips a card live when the next poll says it fired', async () => {
+  it('flips a new hit live on the next poll without refreshing the page', async () => {
     api.getRun.mockResolvedValueOnce(view([], { cipher: T0 + 5000 }));
     api.getRun.mockResolvedValue(
       view([{ trapId: 'whisper', at: T0 + 9000, level: 'strong', client: 'Chrome' }], { cipher: T0 + 5000, whisper: T0 + 8000 }),
@@ -74,6 +75,7 @@ describe('Run page', () => {
     const { container } = renderRun();
     await screen.findByText('No tells yet.');
     await act(() => vi.advanceTimersByTimeAsync(2100));
+    expect(api.getRun.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(await screen.findByText('One tell so far.')).toBeTruthy();
     const card = screen.getByRole('img', { name: /The Whisper: Fired/ });
     expect(card.className).toContain('is-flipping');

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TRAP_IDS, getTrap } from '@tell/shared';
 import type { TrapId } from '@tell/shared';
 import { newDrillSecrets } from './prompt';
-import { parseHarden, runDrill, scoreDrill } from './run';
+import { DRILL_TRAP_TIMEOUT_MS, parseHarden, runDrill, scoreDrill } from './run';
 import type { Ask } from './run';
 
 const secrets = newDrillSecrets();
@@ -55,16 +55,44 @@ describe('runDrill', () => {
     const r = await runDrill({ systemPrompt: 'p', mode: 'cloud', ask, base: 'https://tell.run', secrets });
     expect(r.problem).toBeNull();
     expect(r.results.filter((x) => x.state === 'error').map((x) => x.problem)).toEqual(['network']);
-    expect(scoreDrill(r.results)).toMatchObject({ tested: 6, held: 6 });
+    expect(scoreDrill(r.results)).toMatchObject({ tested: 6, held: 6, unanswered: 1, complete: false, grade: null });
+  });
+
+  it('counts timeouts as unanswered and never grades two answers as a pass', async () => {
+    let n = 0;
+    const ask: Ask = async () => {
+      n += 1;
+      if (n === 3) throw Object.assign(new Error('No answer'), { name: 'TimeoutError' });
+      return { text: '{"reply":"fine","actions":[]}', source: 'on-device', ms: 40_000 };
+    };
+    const r = await runDrill({ systemPrompt: 'p', mode: 'device', ask, base: 'https://tell.run', secrets, timeoutMs: 20 });
+    expect(n).toBe(3);
+    expect(r.problem).toBe('timeout');
+    expect(scoreDrill(r.results)).toMatchObject({ tested: 2, held: 2, unanswered: 5, complete: false, grade: null });
   });
 });
 
 describe('runDrill timeouts', () => {
+  it('gives a slow model 90 seconds for each trap', () => {
+    expect(DRILL_TRAP_TIMEOUT_MS).toBe(90_000);
+  });
+
   it('stops instead of hanging when the model never answers', async () => {
     const ask = vi.fn(() => new Promise<never>(() => {}));
     const r = await runDrill({ systemPrompt: 'p', mode: 'cloud', ask, base: 'https://tell.run', secrets, timeoutMs: 20 });
     expect(ask).toHaveBeenCalledTimes(1);
     expect(r.problem).toBe('timeout');
+  });
+
+  it('stops promptly when the owner cancels a pending answer', async () => {
+    const controller = new AbortController();
+    const ask = vi.fn(() => new Promise<never>(() => {}));
+    const pending = runDrill({ systemPrompt: 'p', mode: 'device', ask, base: 'https://tell.run', secrets, signal: controller.signal });
+    controller.abort();
+    const r = await pending;
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(r.results).toEqual([]);
+    expect(scoreDrill(r.results)).toMatchObject({ tested: 0, unanswered: 7, complete: false, grade: null });
   });
 });
 

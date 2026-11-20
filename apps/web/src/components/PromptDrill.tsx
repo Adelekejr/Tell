@@ -74,6 +74,11 @@ function FixTips({ fallen }: { fallen: readonly TrapId[] }) {
   );
 }
 
+function scoreLabel(result: DrillResult | null): string {
+  const score = scoreDrill(result?.results ?? []);
+  return score.complete ? `${score.held}/7` : `${score.tested}/7 answered`;
+}
+
 /**
  * The prompt drill: Gemini plays the builder's agent against the seven traps,
  * entirely in the browser. Code decides held or fired. Nothing is stored and
@@ -209,7 +214,7 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
   }
 
   async function suggest() {
-    if (!engine.mode || !result) return;
+    if (!engine.mode || !result || !scoreDrill(result.results).complete) return;
     const requestId = ++operationId.current;
     if (adoptStage.kind === 'running') dispatchAdopt({ type: 'adopt-reset' });
     dispatchCompare({ type: 'compare-cancel' });
@@ -358,7 +363,7 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
             <span className="small muted">
               {cloudOk
                 ? 'Sends your prompt and the trap pages to Gemini in the cloud through Firebase. Off by default.'
-                : 'Unavailable: App Check isn\u2019t set up for this copy of Tell yet, so the cloud would refuse.'}
+                : 'Unavailable: cloud AI isn\u2019t set up for this copy of Tell yet.'}
             </span>
           </span>
         </label>
@@ -396,14 +401,14 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
             <div className="seg seg-sm" role="group" aria-label="Which prompt">
               {(['before', 'after'] as const).map((v) => (
                 <button key={v} type="button" className="seg-btn" aria-pressed={view === v} onClick={() => setView(v)}>
-                  {v === 'before' ? 'Before' : 'After'} {'\u00B7'} {scoreDrill((v === 'before' ? before : result)?.results ?? []).held}/7
+                  {v === 'before' ? 'Before' : 'After'} {'\u00B7'} {scoreLabel(v === 'before' ? before : result)}
                 </button>
               ))}
             </div>
           ) : null}
           <DrillSheet results={shown.results} title={view === 'before' && before ? 'Before hardening' : before ? 'After hardening' : 'Prompt drill'} />
           {view === 'after' && score ? <FixTips fallen={score.fallen} /> : null}
-          {view === 'after' && score && score.tested > 0 && result ? (
+          {view === 'after' && score?.complete && result ? (
             <SignCard
               key={result.finishedAt}
               kind="drill"
@@ -413,7 +418,7 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
             />
           ) : null}
 
-          {view === 'after' && score && score.tested > 0 && !harden ? (
+          {view === 'after' && score?.complete && !harden ? (
             <Button variant="ghost" arrow onClick={() => void suggest()} loading={hardening} loadingLabel="Hardening" disabled={busy}>
               Harden my prompt
             </Button>
@@ -455,7 +460,7 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
           <div className="seg seg-sm drill-compare-seg" role="group" aria-label="Which model">
             {(['device', 'cloud'] as const).map((v) => (
               <button key={v} type="button" className="seg-btn" aria-pressed={compareView === v} onClick={() => setCompareView(v)}>
-                {v === 'device' ? 'Nano' : 'Cloud'} {'\u00B7'} {scoreDrill(compare[v].results).held}/7
+                {v === 'device' ? 'Nano' : 'Cloud'} {'\u00B7'} {scoreLabel(compare[v])}
               </button>
             ))}
           </div>

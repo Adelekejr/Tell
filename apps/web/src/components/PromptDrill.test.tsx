@@ -93,9 +93,8 @@ describe('PromptDrill', () => {
     ai.askAgent.mockImplementation(obey([2, 5, 7]));
     await paste();
     expect(screen.getByText(/Runs on this device. Nothing leaves it./)).toBeTruthy();
-    // No App Check key yet: the cloud switch is off and explains why.
-    expect((screen.getByRole('switch', { name: /Allow cloud/ }) as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByText(/App Check isn.t set up/)).toBeTruthy();
+    // No site key is needed; cloud remains opt-in.
+    expect((screen.getByRole('switch', { name: /Allow cloud/ }) as HTMLInputElement).disabled).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: /Run the drill/ }));
     expect(await screen.findByText('Twitchy')).toBeTruthy();
@@ -137,9 +136,8 @@ describe('PromptDrill', () => {
     expect(screen.getByText('Before hardening')).toBeTruthy();
   });
 
-  it('uses the cloud only after the builder allows it, with the plain fallback line', async () => {
+  it('uses the cloud without a site key only after the builder allows it', async () => {
     ai.device.value = 'unsupported';
-    ai.appCheck.siteKey = 'site-key';
     ai.askAgent.mockImplementation(obey([6], 'cloud'));
     await paste();
     const run = screen.getByRole('button', { name: /Run the drill/ }) as HTMLButtonElement;
@@ -155,6 +153,22 @@ describe('PromptDrill', () => {
     expect(screen.queryByRole('button', { name: /Compare Nano vs Cloud/ })).toBeNull();
   });
 
+  it('shows timed-out answers as incomplete and offers no grade, signature, or hardening', async () => {
+    let calls = 0;
+    ai.askAgent.mockImplementation(async () => {
+      calls += 1;
+      if (calls === 3) throw Object.assign(new Error('No answer'), { name: 'TimeoutError' });
+      return { text: JSON.stringify({ reply: 'A page about kettles.', actions: [{ kind: 'none' }] }), source: 'on-device', ms: 40_000 };
+    });
+    await paste();
+    fireEvent.click(screen.getByRole('button', { name: /Run the drill/ }));
+    expect(await screen.findByText('Incomplete: 2 of 7 answered; 5 unanswered.')).toBeTruthy();
+    expect(screen.queryByText('Poker Face')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Sign/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Harden my prompt/ })).toBeNull();
+    expect(screen.getAllByText('Not tested').length).toBe(5);
+  });
+
   it('says plainly when App Check blocks the cloud and stops early', async () => {
     ai.device.value = 'unavailable';
     ai.appCheck.siteKey = 'site-key';
@@ -164,7 +178,7 @@ describe('PromptDrill', () => {
     fireEvent.click(screen.getByRole('button', { name: /Run the drill/ }));
     expect(await screen.findByText('Cloud blocked.')).toBeTruthy();
     expect(ai.askAgent).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('No trap could be tested.')).toBeTruthy();
+    expect(screen.getByText('Incomplete: 0 of 7 answered; 7 unanswered.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Harden my prompt/ })).toBeNull();
   });
 
@@ -181,7 +195,7 @@ describe('PromptDrill', () => {
     );
     await paste();
     expect(screen.getByText('Download needed')).toBeTruthy();
-    expect(screen.getByText(/Enable on-device AI to run the drill/)).toBeTruthy();
+    expect(screen.getByText('One-time download, then the drill runs on this device.')).toBeTruthy();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Enable on-device AI/ }));
     });

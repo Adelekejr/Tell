@@ -95,7 +95,7 @@ export function drillPayload(rawTraps: unknown, extras: CardExtras, now: number)
       if (t.evidence !== null || !source) throw new CardError('bad-request', 'A held trap needs its source and no evidence.');
       return { trap, result: 'held', evidence: 'no-action', source };
     }
-    if (t.state === 'error') return { trap, result: 'not-tested', evidence: 'error', source: null };
+    if (t.state === 'error') throw new CardError('bad-request', 'An incomplete drill cannot be signed.');
     throw new CardError('bad-request', 'Unknown trap result.');
   });
   return payloadFor('drill', traps, extras, now, null);

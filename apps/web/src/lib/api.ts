@@ -21,6 +21,8 @@ const PLAIN: Record<string, string> = {
   network: 'Couldn\u2019t reach the run server. Check your connection and retry.',
 };
 
+const APP_CHECK_TOKEN_TIMEOUT_MS = 1500;
+
 /** An App Check token when App Check is set up; nothing otherwise. Never blocks for long. */
 async function appCheckHeader(): Promise<Record<string, string>> {
   try {
@@ -29,7 +31,15 @@ async function appCheckHeader(): Promise<Record<string, string>> {
     const instance = getAppCheckInstance();
     if (!instance) return {};
     const { getToken } = await import('firebase/app-check');
-    const { token } = await getToken(instance, false);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const token = await Promise.race([
+      getToken(instance, false).then((result) => result.token),
+      new Promise<string>((resolve) => {
+        timer = setTimeout(() => resolve(''), APP_CHECK_TOKEN_TIMEOUT_MS);
+      }),
+    ]).finally(() => {
+      if (timer !== undefined) clearTimeout(timer);
+    });
     return token ? { 'x-firebase-appcheck': token } : {};
   } catch {
     return {};
@@ -43,7 +53,8 @@ async function call<T>(path: string, init: RequestInit & { appCheck?: boolean } 
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
-  } catch {
+  } catch (err) {
+    if (init.signal?.aborted) throw err;
     throw new ApiError('network', PLAIN.network as string, 0);
   }
   const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };

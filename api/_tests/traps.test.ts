@@ -238,6 +238,33 @@ describe('endpoints, end to end on the dev store', () => {
     for (const w of Object.values(words!)) expect(body).not.toContain(w);
   });
 
+  it('allows run creation without a verification token when verification mode is enforce', async () => {
+    vi.stubEnv('TELL_APPCHECK', 'enforce');
+    const res = await createRunRoute(req('/api/run', { method: 'POST' }));
+    expect(res.status).toBe(201);
+  });
+
+  it('shows a new trap hit on the next uncached poll from the web origin', async () => {
+    const run = await newRun();
+    const origin = 'http://localhost:5173';
+    const first = await stateRoute(req(`/api/run/${run.id}`, { headers: { origin } }));
+    expect(first.status).toBe(200);
+    expect(first.headers.get('cache-control')).toContain('no-store');
+    expect(first.headers.get('access-control-allow-origin')).toBe(origin);
+    expect(((await first.json()) as RunView).cards[0]?.state).toBe('waiting');
+
+    const word = await wordFor(run.id, 1);
+    await canary(req(`/c/${run.id}/1?w=${word}`));
+    const next = await stateRoute(req(`/api/run/${run.id}`, { headers: { origin } }));
+    const updated = (await next.json()) as RunView;
+    expect(next.status).toBe(200);
+    expect(next.headers.get('cache-control')).toContain('no-store');
+    expect(next.headers.get('access-control-allow-origin')).toBe(origin);
+    expect(updated.cards[0]?.state).toBe('fired');
+    expect(updated.events.length).toBe(2);
+    expect(updated.events.some((event) => event.kind === 'fired')).toBe(true);
+  });
+
   it('a canary with the word fires; without it is suspicious; bots are not scored', async () => {
     const run = await newRun();
     const w2 = await wordFor(run.id, 2);

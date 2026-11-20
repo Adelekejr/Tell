@@ -16,7 +16,8 @@ describe('pickEngine', () => {
   });
   it('explains when nothing can run', () => {
     expect(pickEngine(false, 'unsupported', true, true).line).toMatch(/Turn on Allow cloud, or use Chrome desktop/);
-    expect(pickEngine(true, 'unsupported', false, true).line).toMatch(/App Check/);
+    expect(pickEngine(true, 'unsupported', true, true).mode).toBe('cloud');
+    expect(pickEngine(true, 'unsupported', false, true).line).toMatch(/cloud AI/);
     expect(pickEngine(false, 'downloadable', false, true).line).toMatch(/Enable on-device AI/);
   });
 });

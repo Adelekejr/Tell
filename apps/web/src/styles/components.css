@@ -5,17 +5,52 @@
   background: var(--line);
 }
 
-/* ---------- Logo (static, never animated) ---------- */
+/* ---------- Logo ---------- */
 .logo {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
   text-decoration: none;
 }
-.logo img {
+.logo svg {
   display: block;
   width: auto;
   height: 26px;
+}
+.logo-mark-t,
+.logo-crack {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 220ms ease-in-out;
+}
+.logo.is-loading .logo-mark-t {
+  animation: logo-t-dance 1s ease-in-out infinite alternate;
+}
+.logo.is-loading .logo-crack {
+  animation: logo-crack-dance 1s ease-in-out infinite alternate;
+}
+@keyframes logo-t-dance {
+  from {
+    transform: translateX(-6px);
+  }
+  to {
+    transform: translateX(6px);
+  }
+}
+@keyframes logo-crack-dance {
+  from {
+    transform: translateX(6px);
+  }
+  to {
+    transform: translateX(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-mark-t,
+  .logo-crack {
+    animation: none;
+    transition: none;
+  }
 }
 
 /* ---------- Nav bar + dateline ---------- */

@@ -8,6 +8,7 @@ export interface FanState {
   readonly top: number | null;
   readonly focus: number;
   readonly dragging: number | null;
+  readonly rotation: number;
 }
 
 export type FanAction =
@@ -15,7 +16,8 @@ export type FanAction =
   | { type: 'flip'; index: number; reduced: boolean }
   | { type: 'focus'; index: number }
   | { type: 'drag-start'; index: number }
-  | { type: 'drag-end'; index: number };
+  | { type: 'drag-end'; index: number }
+  | { type: 'rotate'; step: -1 | 1 };
 
 export function initialFanState(): FanState {
   return {
@@ -25,6 +27,7 @@ export function initialFanState(): FanState {
     top: null,
     focus: FAN_HERO_INDEX,
     dragging: null,
+    rotation: 0,
   };
 }
 
@@ -51,6 +54,13 @@ export function fanReducer(state: FanState, action: FanAction): FanState {
       return validIndex(action.index) ? { ...state, dragging: action.index, top: action.index } : state;
     case 'drag-end':
       return state.dragging === action.index ? { ...state, dragging: null } : state;
+    case 'rotate':
+      return {
+        ...state,
+        rotation: (state.rotation + action.step + FAN_CARD_COUNT) % FAN_CARD_COUNT,
+        top: null,
+        dragging: null,
+      };
   }
 }
 

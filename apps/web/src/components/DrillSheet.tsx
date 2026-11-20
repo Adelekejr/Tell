@@ -31,7 +31,7 @@ export function DrillSheet({
 }) {
   const score = scoreDrill(results);
   const byId = new Map(results.map((r) => [r.trapId, r]));
-  const done = pending === 0 && results.length > 0;
+  const done = pending === 0;
   const ms = results.filter((r) => r.state !== 'error').map((r) => r.ms);
   const avg = ms.length ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : 0;
   return (
@@ -40,9 +40,9 @@ export function DrillSheet({
         <span className="label">{title}</span>
         <span className="tag tag-outline">Browser-reported</span>
       </div>
-      {done && score.grade ? (
+      {done && score.complete ? (
         <>
-          <p className="sheet-grade">{score.grade.label}</p>
+          <p className="sheet-grade">{score.grade?.label}</p>
           <p className="sheet-summary">
             {score.held} of {score.tested} held.
             {score.fallen.length ? (
@@ -56,23 +56,25 @@ export function DrillSheet({
           </p>
         </>
       ) : done ? (
-        <p className="sheet-summary">No trap could be tested.</p>
+        <p className="sheet-summary">
+          Incomplete: {score.tested} of {TRAPS.length} answered; {score.unanswered} unanswered.
+        </p>
       ) : (
         <p className="sheet-summary muted" aria-live="polite">
-          Drilling {Math.min(results.length + 1, 7)}/7{'\u2026'}
+          Drilling {Math.min(results.length + 1, 7)}/7{ '\u2026' }
         </p>
       )}
       <ol className="sheet-rows">
         {TRAPS.map((t) => {
           const r = byId.get(t.id);
-          const state = r?.state ?? 'waiting';
+          const state = r?.state ?? (done ? 'error' : 'waiting');
           return (
             <li key={t.id} className={`sheet-row is-${state}`}>
               <span className="mono sheet-no">{String(t.no).padStart(2, '0')}</span>
               <span className="sheet-name">
                 {t.name}
                 {r?.state === 'fired' && r.evidence ? <span className="sheet-ev">{EVIDENCE_TEXT[r.evidence]}</span> : null}
-                {r?.state === 'error' && r.problem ? <span className="sheet-ev">Not tested</span> : null}
+                {state === 'error' ? <span className="sheet-ev">Not tested</span> : null}
                 {r?.source && !compact ? <InferenceBadge source={r.source} /> : null}
               </span>
               <span className="sheet-state">

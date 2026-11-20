@@ -21,6 +21,8 @@ const DEAL_STAGGER = 60;
 const DEAL_MS = 400;
 /** Pointer travel (px) before a press counts as a drag instead of a tap. */
 const DRAG_SLOP = 6;
+/** Horizontal travel before a gesture turns the fan by one card. */
+const SWIPE_THRESHOLD = 36;
 /** How far a card can be pulled before it resists completely. */
 const MAX_X = 36;
 const MAX_Y = 24;
@@ -30,6 +32,7 @@ interface Drag {
   x: number;
   y: number;
   moved: boolean;
+  axis: 'pending' | 'horizontal' | 'vertical';
 }
 
 /** A face-up card on the home fan that isn't the hero: what the trap is, not a result. */
@@ -83,8 +86,8 @@ export function Fan() {
   }
 
   function onPointerDown(i: number, e: PointerEvent<HTMLButtonElement>) {
-    if (e.button !== 0 || reduced) return;
-    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+    if (e.button !== 0) return;
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, axis: 'pending' };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }
 
@@ -93,20 +96,32 @@ export function Fan() {
     if (!d || d.id !== e.pointerId) return;
     const dx = e.clientX - d.x;
     const dy = e.clientY - d.y;
-    if (!d.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
-    if (!d.moved) {
+    if (d.axis === 'pending' && Math.hypot(dx, dy) < DRAG_SLOP) return;
+    if (d.axis === 'pending') {
       d.moved = true;
-      dispatch({ type: 'drag-start', index: i });
+      d.axis = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
+      if (d.axis === 'vertical' && !reduced) dispatch({ type: 'drag-start', index: i });
     }
-    const slot = e.currentTarget.parentElement;
-    if (slot) place(slot, rubber(dx, MAX_X), rubber(dy, MAX_Y));
+    if (d.axis === 'vertical' && !reduced) {
+      const slot = e.currentTarget.parentElement;
+      if (slot) place(slot, rubber(dx, MAX_X), rubber(dy, MAX_Y));
+    }
   }
 
   function onPointerEnd(i: number, e: PointerEvent<HTMLButtonElement>) {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
     const slot = e.currentTarget.parentElement;
-    if (slot) release(i, slot);
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    if (d.axis === 'vertical' && !reduced && slot) release(i, slot);
+    else {
+      drag.current = null;
+      if (slot) place(slot, 0, 0);
+    }
+    if (e.type === 'pointerup' && d.axis === 'horizontal' && Math.abs(dx) >= SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+      dispatch({ type: 'rotate', step: dx < 0 ? 1 : -1 });
+    }
     // A drag ends in the click that follows pointerup; swallow that one click.
     if (d.moved && e.type === 'pointerup') e.currentTarget.dataset.dragged = '1';
   }
@@ -121,10 +136,12 @@ export function Fan() {
 
   function onKeyDown(i: number, e: KeyboardEvent<HTMLButtonElement>) {
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-    let next = step ? (i + step + FAN.length) % FAN.length : -1;
-    if (e.key === 'Home') next = 0;
-    if (e.key === 'End') next = FAN.length - 1;
-    if (next < 0) return;
+    const slot = (i - fan.rotation + FAN.length) % FAN.length;
+    let nextSlot = step ? (slot + step + FAN.length) % FAN.length : -1;
+    if (e.key === 'Home') nextSlot = 0;
+    if (e.key === 'End') nextSlot = FAN.length - 1;
+    if (nextSlot < 0) return;
+    const next = (nextSlot + fan.rotation) % FAN.length;
     e.preventDefault();
     dispatch({ type: 'focus', index: next });
     cards.current[next]?.focus();
@@ -132,15 +149,17 @@ export function Fan() {
 
   return (
     <div className="fan" role="toolbar" aria-label="The seven trap cards. Press a card to flip it.">
-      {FAN.map((c, i) => {
+      {FAN.map((shape, slot) => {
+        const i = (slot + fan.rotation) % FAN.length;
+        const c = FAN[i]!;
         const trap = getTrap(c.id);
         const faceUp = isUp(i);
-        const z = fan.dragging === i ? 30 : fan.top === i ? 20 : faceUp && c.hero ? 12 : c.z;
+        const z = fan.dragging === i ? 30 : fan.top === i ? 20 : faceUp && c.hero ? 12 : shape.z;
         return (
           <div
             key={c.id}
             className={`fan-card${fan.dragging === i ? ' is-dragging' : ''}${faceUp ? ' is-up' : ''}`}
-            style={{ '--rot': `${c.rot}deg`, '--lift': `${c.lift ?? 0}px`, '--i': i, zIndex: z } as CSSProperties}
+            style={{ '--rot': `${shape.rot}deg`, '--lift': `${shape.lift ?? 0}px`, '--i': slot, zIndex: z } as CSSProperties}
           >
             <button
               ref={(el) => {

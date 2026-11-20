@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type * as ApiModule from '../lib/api';
 import { routes } from '../routes';
 
-const api = vi.hoisted(() => ({ createRun: vi.fn() }));
+const api = vi.hoisted(() => ({ createRun: vi.fn(), getRun: vi.fn() }));
 vi.mock('../lib/api', async (orig) => ({ ...(await orig<typeof ApiModule>()), ...api }));
 
 const ID = 'b'.repeat(26);
@@ -36,12 +36,23 @@ describe('Lab', () => {
 
   it('remembers the run after a reload until it expires', async () => {
     localStorage.setItem('tell.lastRun', JSON.stringify({ id: ID, label: 'R-BBBB', task, expiresAt: Date.now() + 1000 }));
+    api.getRun.mockResolvedValue({ id: ID, label: 'R-BBBB', task, expiresAt: Date.now() + 1000, status: 'open' });
     renderLab();
-    expect(screen.getByText('Your run is ready')).toBeTruthy();
+    expect(await screen.findByText('Your run is ready')).toBeTruthy();
+    expect(api.getRun).toHaveBeenCalledWith(ID);
     cleanup();
     localStorage.setItem('tell.lastRun', JSON.stringify({ id: ID, label: 'R-BBBB', task, expiresAt: Date.now() - 1 }));
     renderLab();
     expect(screen.getByRole('button', { name: /Start a live test/ })).toBeTruthy();
+  });
+
+  it.each(['finished', 'expired'] as const)('does not show a server-%s cached run as ready', async (status) => {
+    localStorage.setItem('tell.lastRun', JSON.stringify({ id: ID, label: 'R-BBBB', task, expiresAt: Date.now() + 1000 }));
+    api.getRun.mockResolvedValue({ id: ID, label: 'R-BBBB', task, expiresAt: Date.now() + 1000, status });
+    renderLab();
+    expect(await screen.findByRole('button', { name: /Start a live test/ })).toBeTruthy();
+    expect(screen.queryByText('Your run is ready')).toBeNull();
+    expect(localStorage.getItem('tell.lastRun')).toBeNull();
   });
 
   it('says plainly when runs are not switched on', async () => {

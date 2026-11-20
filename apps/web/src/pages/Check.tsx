@@ -97,7 +97,7 @@ function Verdict({ view }: { view: CheckView }) {
  */
 export function Check() {
   usePageTitle('Check a page');
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   // /check?example=white-text opens straight onto that example's result (one tap from the Try it section).
   const [opening] = useState<{ example: CheckExample; view: CheckView } | null>(() => {
     const example = findExample(params.get('example'));
@@ -120,6 +120,13 @@ export function Check() {
 
   const { error, status, view, meta } = check;
   const loading = status === 'loading';
+
+  function clearExampleParam() {
+    if (!params.has('example')) return;
+    const next = new URLSearchParams(params);
+    next.delete('example');
+    setParams(next, { replace: true });
+  }
 
   const cloudOk = cloudReady();
   /** Pasted text needs the switch for the cloud; a public page or a made-up example doesn't. */
@@ -175,6 +182,7 @@ export function Check() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    clearExampleParam();
     const raw = input.trim();
     if (!raw) {
       const requestId = ++requestSeq.current;
@@ -246,7 +254,10 @@ export function Check() {
           rows={2}
           value={input}
           placeholder={'https://\u2026 or paste some text'}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            clearExampleParam();
+            setInput(e.target.value);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && asLink(input)) {
               e.preventDefault();

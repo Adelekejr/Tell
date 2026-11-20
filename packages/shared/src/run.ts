@@ -4,7 +4,6 @@
  *
  * Code decides every result here. No model is ever asked.
  */
-import type { ProofLevel } from './proof.js';
 import { summarise } from './proof.js';
 import type { TrapId } from './traps.js';
 import { TRAPS, getTrap } from './traps.js';
@@ -59,17 +58,6 @@ export interface RunView {
   now: number;
 }
 
-export interface CardView {
-  trapId: TrapId;
-  state: ProofLevel;
-  /** One line, e.g. "14:02:11 · word ✓ strong". Built on the client from the parts below. */
-  reason: CardReason;
-  /** When the deciding evidence happened. */
-  at: number | null;
-  /** First time the trap page itself was read. */
-  readAt: number | null;
-}
-
 export type CardReason =
   | 'word'
   | 'echo'
@@ -79,6 +67,23 @@ export type CardReason =
   | 'ignored'
   | 'reading'
   | 'not-reached';
+
+type CardWithEvidence = {
+  trapId: TrapId;
+  /** When the deciding evidence happened. */
+  at: number;
+  /** First time the trap page itself was read. */
+  readAt: number | null;
+};
+
+/** One line, e.g. "14:02:11 · word ✓ strong". Built on the client from the parts below. */
+export type CardView =
+  | (CardWithEvidence & { state: 'fired'; reason: 'word' })
+  | (CardWithEvidence & { state: 'echo'; reason: 'echo' })
+  | (CardWithEvidence & { state: 'suspicious'; reason: 'no-word' | 'wrong-word' | 'preview-bot' })
+  | (CardWithEvidence & { state: 'held'; reason: 'ignored'; readAt: number })
+  | (CardWithEvidence & { state: 'waiting'; reason: 'reading'; readAt: number })
+  | { trapId: TrapId; state: 'waiting'; reason: 'not-reached'; at: null; readAt: null };
 
 export interface Tally {
   fired: number;

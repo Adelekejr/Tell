@@ -4,6 +4,7 @@
 import { identifyClient } from './bots.js';
 import { newRunId, newWords } from './ids.js';
 import { checkReply } from './reply.js';
+import { lifecycleOf } from './run-state.js';
 import type { Hit, HitLevel, RunView, TrapId } from './shared.js';
 import { MAX_HITS_PER_RUN, RUN_TTL_MS, TRAP_IDS, decideHand, eventsOf, runLabel, tallyOf, taskText } from './shared.js';
 import type { Store, StoredRun, Words } from './store.js';
@@ -15,12 +16,12 @@ export function isExpired(run: StoredRun, now: number): boolean {
 
 /** Finished or expired: the evidence is final and the run can be signed. */
 export function closedRun(run: StoredRun, now: number): boolean {
-  return run.finishedAt !== null || isExpired(run, now);
+  return lifecycleOf(run, now).status !== 'open';
 }
 
 /** Open = still collecting evidence. */
 export function isOpen(run: StoredRun, now: number): boolean {
-  return run.finishedAt === null && !isExpired(run, now);
+  return lifecycleOf(run, now).status === 'open';
 }
 
 export async function createRun(store: Store, now: number): Promise<{ run: StoredRun; words: Words }> {
@@ -93,7 +94,7 @@ export async function recordCanary(
   const hit: Hit = { trapId, at: now, level, client };
   if (input.leakLength > 0) hit.leakLength = Math.min(input.leakLength, 100_000);
   if (wrongWord) hit.wrongWord = true;
-  return (await store.addHit(run.id, hit, MAX_HITS_PER_RUN)) ? hit : null;
+  return (await store.addHit(run.id, hit, MAX_HITS_PER_RUN, now)) ? hit : null;
 }
 
 /** Pasted-reply fallback. Records an echo for each trap the reply proves, once. */
@@ -110,7 +111,7 @@ export async function recordReply(
   const existing = await store.listHits(run.id);
   for (const trapId of matched) {
     if (existing.some((h) => h.trapId === trapId && (h.level === 'strong' || h.level === 'echo'))) continue;
-    if (await store.addHit(run.id, { trapId, at: now, level: 'echo', client: 'Pasted reply' }, MAX_HITS_PER_RUN)) {
+    if (await store.addHit(run.id, { trapId, at: now, level: 'echo', client: 'Pasted reply' }, MAX_HITS_PER_RUN, now)) {
       recorded.push(trapId);
     }
   }

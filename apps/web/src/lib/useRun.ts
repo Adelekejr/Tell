@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { RunView } from '@tell/shared';
 import { ApiError, getRun } from './api';
+import { initialRunState, runReducer } from './useRun-state';
 
 const FAST_MS = 2000;
 const MAX_BACKOFF_MS = 15000;
@@ -22,11 +23,10 @@ export interface RunState {
  * is hidden and catches up the moment it is visible or back online.
  */
 export function useRun(id: string): RunState {
-  const [run, setRun] = useState<RunView | null>(null);
-  const [error, setError] = useState<ApiError | null>(null);
-  const [failures, setFailures] = useState(0);
+  const [state, dispatch] = useReducer(runReducer, undefined, initialRunState);
   const timer = useRef<number | null>(null);
   const live = useRef(true);
+  const requestId = useRef(0);
   const tickRef = useRef<() => void>(() => {});
 
   const schedule = useCallback((ms: number) => {
@@ -39,29 +39,31 @@ export function useRun(id: string): RunState {
     live.current = true;
     let failCount = 0;
     let controller: AbortController | null = null;
+    const effectRequest = ++requestId.current;
+    dispatch({ type: 'request', requestId: effectRequest, phase: 'loading', preserveRun: false });
+
     tickRef.current = async () => {
       if (!live.current) return;
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       controller?.abort();
       controller = new AbortController();
+      const currentRequest = ++requestId.current;
+      dispatch({ type: 'request', requestId: currentRequest, phase: failCount ? 'retrying' : 'loading', preserveRun: true });
       try {
         const next = await getRun(id, controller.signal);
         if (!live.current) return;
         failCount = 0;
-        setFailures(0);
-        setError(null);
-        setRun(next);
+        dispatch({ type: 'success', requestId: currentRequest, run: next });
         if (next.status === 'open') schedule(FAST_MS);
       } catch (err) {
         if (!live.current || (err instanceof DOMException && err.name === 'AbortError')) return;
         const e = err instanceof ApiError ? err : new ApiError('network', 'Couldn\u2019t reach the run.', 0);
         if (e.status === 404 || e.code === 'not-configured') {
-          setError(e);
+          dispatch({ type: 'failure', requestId: currentRequest, error: e, failures: failCount, showError: true });
           return;
         }
         failCount += 1;
-        setFailures(failCount);
-        if (failCount >= 2) setError(e);
+        dispatch({ type: 'failure', requestId: currentRequest, error: e, failures: failCount, showError: failCount >= 2 });
         schedule(Math.min(FAST_MS * 2 ** failCount, MAX_BACKOFF_MS));
       }
     };
@@ -73,6 +75,7 @@ export function useRun(id: string): RunState {
     window.addEventListener('online', wake);
     return () => {
       live.current = false;
+      requestId.current += 1;
       controller?.abort();
       if (timer.current !== null) window.clearTimeout(timer.current);
       document.removeEventListener('visibilitychange', wake);
@@ -81,6 +84,9 @@ export function useRun(id: string): RunState {
   }, [id, schedule]);
 
   const refresh = useCallback(() => tickRef.current(), []);
-  const replace = useCallback((next: RunView) => setRun(next), []);
-  return { run, error, offline: failures >= 2, refresh, replace };
+  const replace = useCallback((next: RunView) => {
+    const nextRequestId = ++requestId.current;
+    dispatch({ type: 'replace', requestId: nextRequestId, run: next });
+  }, []);
+  return { run: state.run, error: state.error, offline: state.failures >= 2, refresh, replace };
 }

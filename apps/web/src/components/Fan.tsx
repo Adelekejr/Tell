@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { getTrap, trapNumber } from '@tell/shared';
 import type { TrapId, TrapInfo } from '@tell/shared';
 import { rubber, useReducedMotion } from '../lib/motion';
 import { CardBack, CardFront } from './TrapCard';
+import { fanCardIsUp, fanReducer, initialFanState } from './fan-state';
 
 /** Fan order, left to right. The Whisper sits raised in the middle. */
 const FAN: { id: TrapId; rot: number; lift?: number; z: number; hero?: boolean }[] = [
@@ -16,7 +17,6 @@ const FAN: { id: TrapId; rot: number; lift?: number; z: number; hero?: boolean }
   { id: 'impostor', rot: 24, z: 6 },
 ];
 
-const HERO = FAN.findIndex((c) => c.hero);
 const DEAL_STAGGER = 60;
 const DEAL_MS = 400;
 /** Pointer travel (px) before a press counts as a drag instead of a tap. */
@@ -58,35 +58,17 @@ function TrickFace({ trap }: { trap: TrapInfo }) {
  */
 export function Fan() {
   const reduced = useReducedMotion();
-  const [up, setUp] = useState<ReadonlySet<number>>(() => new Set());
-  const [heroDealt, setHeroDealt] = useState(false);
-  const [top, setTop] = useState<number | null>(null);
-  const [focus, setFocus] = useState(HERO);
-  const [dragging, setDragging] = useState<number | null>(null);
+  const [fan, dispatch] = useReducer(fanReducer, undefined, initialFanState);
   const cards = useRef<(HTMLButtonElement | null)[]>([]);
   const drag = useRef<Drag | null>(null);
 
   // After the deal, the hero turns over on its own, unless the visitor got there first.
   useEffect(() => {
     if (reduced) return;
-    const t = window.setTimeout(() => setHeroDealt(true), FAN.length * DEAL_STAGGER + DEAL_MS + 140);
+    const t = window.setTimeout(() => dispatch({ type: 'hero-dealt' }), FAN.length * DEAL_STAGGER + DEAL_MS + 140);
     return () => window.clearTimeout(t);
   }, [reduced]);
-  const [touched, setTouched] = useState(false);
-  const heroUp = touched ? up.has(HERO) : reduced || heroDealt;
-  const isUp = (i: number) => (i === HERO ? heroUp : up.has(i));
-
-  function flip(i: number) {
-    const next = new Set(up);
-    if (!touched) {
-      setTouched(true);
-      if (reduced || heroDealt) next.add(HERO);
-    }
-    if (next.has(i)) next.delete(i);
-    else next.add(i);
-    setUp(next);
-    setTop(i);
-  }
+  const isUp = (i: number) => fanCardIsUp(fan, i, reduced);
 
   function place(el: HTMLElement, dx: number, dy: number) {
     el.style.setProperty('--dx', `${dx}px`);
@@ -97,7 +79,7 @@ export function Fan() {
   function release(i: number, el: HTMLElement) {
     drag.current = null;
     place(el, 0, 0);
-    setDragging((d) => (d === i ? null : d));
+    dispatch({ type: 'drag-end', index: i });
   }
 
   function onPointerDown(i: number, e: PointerEvent<HTMLButtonElement>) {
@@ -114,8 +96,7 @@ export function Fan() {
     if (!d.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
     if (!d.moved) {
       d.moved = true;
-      setDragging(i);
-      setTop(i);
+      dispatch({ type: 'drag-start', index: i });
     }
     const slot = e.currentTarget.parentElement;
     if (slot) place(slot, rubber(dx, MAX_X), rubber(dy, MAX_Y));
@@ -135,7 +116,7 @@ export function Fan() {
       delete el.dataset.dragged;
       return;
     }
-    flip(i);
+    dispatch({ type: 'flip', index: i, reduced });
   }
 
   function onKeyDown(i: number, e: KeyboardEvent<HTMLButtonElement>) {
@@ -145,7 +126,7 @@ export function Fan() {
     if (e.key === 'End') next = FAN.length - 1;
     if (next < 0) return;
     e.preventDefault();
-    setFocus(next);
+    dispatch({ type: 'focus', index: next });
     cards.current[next]?.focus();
   }
 
@@ -154,11 +135,11 @@ export function Fan() {
       {FAN.map((c, i) => {
         const trap = getTrap(c.id);
         const faceUp = isUp(i);
-        const z = dragging === i ? 30 : top === i ? 20 : faceUp && c.hero ? 12 : c.z;
+        const z = fan.dragging === i ? 30 : fan.top === i ? 20 : faceUp && c.hero ? 12 : c.z;
         return (
           <div
             key={c.id}
-            className={`fan-card${dragging === i ? ' is-dragging' : ''}${faceUp ? ' is-up' : ''}`}
+            className={`fan-card${fan.dragging === i ? ' is-dragging' : ''}${faceUp ? ' is-up' : ''}`}
             style={{ '--rot': `${c.rot}deg`, '--lift': `${c.lift ?? 0}px`, '--i': i, zIndex: z } as CSSProperties}
           >
             <button
@@ -167,11 +148,11 @@ export function Fan() {
               }}
               type="button"
               className={`tcard${faceUp ? ' is-flipped' : ''}`}
-              tabIndex={focus === i ? 0 : -1}
+              tabIndex={fan.focus === i ? 0 : -1}
               aria-label={faceUp ? `${trap.name}: ${c.hero ? 'Tell! It fired.' : trap.trick}` : `${trap.name}, face down`}
               onClick={(e) => onClick(i, e.currentTarget)}
               onKeyDown={(e) => onKeyDown(i, e)}
-              onFocus={() => setFocus(i)}
+              onFocus={() => dispatch({ type: 'focus', index: i })}
               onPointerDown={(e) => onPointerDown(i, e)}
               onPointerMove={(e) => onPointerMove(i, e)}
               onPointerUp={(e) => onPointerEnd(i, e)}

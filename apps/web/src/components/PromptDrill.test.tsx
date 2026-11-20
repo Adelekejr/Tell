@@ -12,8 +12,13 @@ const ai = vi.hoisted(() => ({
   enableDrillOnDevice: vi.fn(),
   device: { value: 'available' as string },
   appCheck: { provider: 'recaptcha-v3', siteKey: null as string | null, debugToken: null },
+  delayHybrid: false,
+  hybridGate: null as Promise<void> | null,
 }));
-vi.mock('../ai/hybrid', () => ({ askAgent: ai.askAgent, askHarden: ai.askHarden, enableDrillOnDevice: ai.enableDrillOnDevice }));
+vi.mock('../ai/hybrid', async () => {
+  if (ai.delayHybrid && ai.hybridGate) await ai.hybridGate;
+  return { askAgent: ai.askAgent, askHarden: ai.askHarden, enableDrillOnDevice: ai.enableDrillOnDevice };
+});
 vi.mock('../ai/config', () => ({
   isConfigured: true,
   config: { appCheck: ai.appCheck, missing: [], cloudModel: 'gemini-2.5-flash-lite' },
@@ -54,6 +59,8 @@ async function paste(text = PROMPT) {
 beforeEach(() => {
   ai.device.value = 'available';
   ai.appCheck.siteKey = null;
+  ai.delayHybrid = false;
+  ai.hybridGate = null;
 });
 afterEach(() => {
   cleanup();
@@ -61,6 +68,27 @@ afterEach(() => {
 });
 
 describe('PromptDrill', () => {
+  it('ignores an older drill request still waiting for the AI module', async () => {
+    let release!: () => void;
+    ai.delayHybrid = true;
+    ai.hybridGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    ai.askAgent.mockImplementation(obey([]));
+    await paste();
+    expect(await screen.findByText(/Runs on this device. Nothing leaves it./)).toBeTruthy();
+
+    const run = screen.getByRole('button', { name: /Run the drill/ });
+    fireEvent.click(run);
+    fireEvent.click(run);
+    await act(async () => {
+      release();
+      for (let i = 0; i < 30; i += 1) await Promise.resolve();
+    });
+
+    expect(ai.askAgent).toHaveBeenCalledTimes(7);
+  });
+
   it('drills on-device, decides each trap in code, and badges every row', async () => {
     ai.askAgent.mockImplementation(obey([2, 5, 7]));
     await paste();
@@ -187,4 +215,5 @@ describe('PromptDrill', () => {
     expect(screen.getByText('On-device only')).toBeTruthy();
     expect(screen.getByText('Cloud only')).toBeTruthy();
   });
+
 });

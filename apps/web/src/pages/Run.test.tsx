@@ -178,6 +178,25 @@ describe('run wording', () => {
 });
 
 describe('waitFor sanity', () => {
+  it('does not let an older poll response overwrite a newer response', async () => {
+    let resolveOld!: (value: RunView) => void;
+    let resolveNew!: (value: RunView) => void;
+    const old = new Promise<RunView>((resolve) => {
+      resolveOld = resolve;
+    });
+    const newer = new Promise<RunView>((resolve) => {
+      resolveNew = resolve;
+    });
+    api.getRun.mockReturnValueOnce(old).mockReturnValueOnce(newer);
+    renderRun();
+    fireEvent(window, new Event('online'));
+    resolveNew(view([{ trapId: 'whisper', at: T0 + 1, level: 'strong' }]));
+    expect(await screen.findByText('One tell so far.')).toBeTruthy();
+    resolveOld(view());
+    await act(async () => Promise.resolve());
+    expect(screen.getByText('One tell so far.')).toBeTruthy();
+  });
+
   it('keeps polling while open', async () => {
     api.getRun.mockResolvedValue(view());
     renderRun();

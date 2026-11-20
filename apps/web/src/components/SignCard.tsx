@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useReducer, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { MAX_CARD_PROMPT, checkAgentName } from '@tell/shared';
@@ -7,6 +7,7 @@ import { ApiError, cardPath, signCard } from '../lib/api';
 import { Button } from './Button';
 import { Input, Textarea } from './Field';
 import { Notice } from './Notice';
+import { initialSubmissionState, submissionReducer } from './submission-state';
 
 type Extras = { agent?: string; prompt?: string };
 
@@ -30,31 +31,44 @@ export function SignCard({
   const [agent, setAgent] = useState('');
   const [includePrompt, setIncludePrompt] = useState(false);
   const [prompt, setPrompt] = useState(defaultPrompt);
-  const [busy, setBusy] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [submission, dispatch] = useReducer(submissionReducer, initialSubmissionState);
+  const nextRequestId = useRef(0);
+  const activeRequest = useRef<number | null>(null);
+  const busy = submission.status === 'submitting';
+  const nameError = submission.status === 'validation-error' ? submission.message : null;
+  const error = submission.status === 'error' ? submission.message : null;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    if (activeRequest.current !== null) return;
+    const requestId = ++nextRequestId.current;
+    activeRequest.current = requestId;
+    dispatch({ type: 'begin', requestId });
     const extras: Extras = {};
     if (agent.trim()) {
       const name = checkAgentName(agent);
       if (!name.ok) {
-        setNameError(name.reason);
+        dispatch({ type: 'validation-error', requestId, message: name.reason });
+        activeRequest.current = null;
         return;
       }
       extras.agent = name.name;
     }
-    setNameError(null);
     if (includePrompt && prompt.trim()) extras.prompt = prompt.trim();
-    setBusy(true);
     try {
       const { card } = await signCard(build(extras));
+      if (activeRequest.current !== requestId) return;
+      dispatch({ type: 'success', requestId });
+      activeRequest.current = null;
       navigate(cardPath(card.payload.id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Couldn\u2019t sign the card. Retry in a moment.');
-      setBusy(false);
+      if (activeRequest.current !== requestId) return;
+      dispatch({
+        type: 'failure',
+        requestId,
+        message: err instanceof ApiError ? err.message : 'Couldn\u2019t sign the card. Retry in a moment.',
+      });
+      activeRequest.current = null;
     }
   }
 

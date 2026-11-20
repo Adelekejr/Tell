@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useReducer, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import type { FormEvent } from 'react';
 import type { AnswerSource } from '@tell/shared';
@@ -13,6 +13,7 @@ import { analyseHtml, analyseText } from '../check/analyse';
 import { EXAMPLE_HTML, EXAMPLE_URL } from '../check/example';
 import type { CheckExample } from '../check/examples';
 import { exampleMeta, findExample } from '../check/examples';
+import { checkReducer, initialCheckState } from './check-state';
 import type { Explanation } from '../check/explain';
 import { MAX_EXPLAINED, buildExplainPrompt, parseExplanation } from '../check/explain';
 import { MAX_TEXT, asLink, hostOf } from '../check/input';
@@ -103,17 +104,22 @@ export function Check() {
     return example ? { example, view: example.run() } : null;
   });
   const [input, setInput] = useState(() => opening?.example.input ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<CheckView | null>(() => opening?.view ?? null);
-  const [meta, setMeta] = useState<string | null>(() => (opening ? exampleMeta(opening.example) : null));
+  const [check, dispatch] = useReducer(
+    checkReducer,
+    opening ? { view: opening.view, meta: exampleMeta(opening.example) } : null,
+    initialCheckState,
+  );
   const [allowCloud, setAllowCloud] = useState(false);
   const [device, setDevice] = useState<DeviceAvailability | null>(null);
   const [explain, setExplain] = useState<Explain>({ status: 'idle' });
   const [showAll, setShowAll] = useState(false);
   const result = useRef<HTMLDivElement | null>(null);
   const seq = useRef(0);
+  const requestSeq = useRef(0);
   const [runKey, setRunKey] = useState(0);
+
+  const { error, status, view, meta } = check;
+  const loading = status === 'loading';
 
   const cloudOk = cloudReady();
   /** Pasted text needs the switch for the cloud; a public page or a made-up example doesn't. */
@@ -156,11 +162,11 @@ export function Check() {
     if (opening) requestAnimationFrame(() => result.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
   }, [opening]);
 
-  function show(v: CheckView, about: string | null) {
+  function show(v: CheckView, about: string | null, requestId = ++requestSeq.current) {
+    if (requestId !== requestSeq.current) return;
     seq.current += 1;
     setRunKey((k) => k + 1);
-    setView(v);
-    setMeta(about);
+    dispatch({ type: 'success', requestId, view: v, meta: about });
     setShowAll(false);
     setExplain({ status: 'idle' });
     requestAnimationFrame(() => result.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
@@ -170,40 +176,46 @@ export function Check() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const raw = input.trim();
-    setError(null);
     if (!raw) {
-      setError('Paste a link (like https://example.com/page) or some text first.');
+      const requestId = ++requestSeq.current;
+      dispatch({ type: 'start', requestId });
+      dispatch({ type: 'failure', requestId, error: 'Paste a link (like https://example.com/page) or some text first.' });
       return;
     }
     const link = asLink(raw);
     if (!link) {
       if (raw.length > MAX_TEXT) {
-        setError('That\u2019s a lot of text. Paste up to 200,000 characters at a time.');
+        const requestId = ++requestSeq.current;
+        dispatch({ type: 'start', requestId });
+        dispatch({ type: 'failure', requestId, error: 'That\u2019s a lot of text. Paste up to 200,000 characters at a time.' });
         return;
       }
-      show(analyseText(raw), 'Your pasted text. It stayed in this browser.');
+      const requestId = ++requestSeq.current;
+      dispatch({ type: 'start', requestId });
+      show(analyseText(raw), 'Your pasted text. It stayed in this browser.', requestId);
       return;
     }
-    setLoading(true);
+    const requestId = ++requestSeq.current;
+    dispatch({ type: 'start', requestId });
     try {
       const page = await fetchPage(link);
       const v = page.kind === 'html' ? analyseHtml(page.body, { url: page.url }) : { ...analyseText(page.body), source: 'link' as const, url: page.url };
       const bits = [`From ${hostOf(page.url)}`];
       if (page.redirects) bits.push(`${page.redirects} redirect${page.redirects > 1 ? 's' : ''} followed`);
       if (page.stylesheets) bits.push(`${page.stylesheets} style sheet${page.stylesheets > 1 ? 's' : ''} read`);
-      show(v, bits.join(' \u00B7 '));
+      show(v, bits.join(' \u00B7 '), requestId);
     } catch (err) {
       const code = err instanceof ApiError ? err.code : 'network';
-      setError(FETCH_TEXT[code] ?? (err instanceof ApiError ? err.message : FETCH_TEXT.network) ?? null);
-    } finally {
-      setLoading(false);
+      const message = FETCH_TEXT[code] ?? (err instanceof ApiError ? err.message : undefined) ?? FETCH_TEXT.network!;
+      dispatch({ type: 'failure', requestId, error: message });
     }
   }
 
   function tryExample() {
     setInput(EXAMPLE_URL);
-    setError(null);
-    show(analyseHtml(EXAMPLE_HTML, { url: EXAMPLE_URL, source: 'example' }), 'Example page (made up, checked in this browser)');
+    const requestId = ++requestSeq.current;
+    dispatch({ type: 'start', requestId });
+    show(analyseHtml(EXAMPLE_HTML, { url: EXAMPLE_URL, source: 'example' }), 'Example page (made up, checked in this browser)', requestId);
   }
 
   function toggleCloud(on: boolean) {
@@ -327,7 +339,8 @@ export function Check() {
             variant="ghost"
             onClick={() => {
               seq.current += 1;
-              setView(null);
+              const requestId = ++requestSeq.current;
+              dispatch({ type: 'clear', requestId });
               setInput('');
               setExplain({ status: 'idle' });
               window.scrollTo?.({ top: 0, behavior: 'smooth' });

@@ -21,7 +21,7 @@ export function evidenceFor(card: CardView, finished: boolean): { evidence?: str
     case 'ignored':
       return { evidence: 'Read it \u00B7 ignored the line', backLabel: '' };
     case 'reading':
-      return { backLabel: `Read ${clock(card.readAt ?? card.at ?? 0, false)}` };
+      return { backLabel: `Read ${clock(card.readAt, false)}` };
     case 'not-reached':
       return { backLabel: finished ? 'Not reached' : 'Waiting' };
   }

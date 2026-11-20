@@ -36,7 +36,7 @@ export interface Store {
   getWords(id: string): Promise<Words | null>;
   listHits(id: string): Promise<Hit[]>;
   /** Adds a hit unless the run already holds `max` hits. Returns false when capped. */
-  addHit(id: string, hit: Hit, max: number): Promise<boolean>;
+  addHit(id: string, hit: Hit, max: number, now: number): Promise<boolean>;
   /** Records the first read of a trap page; later reads are ignored. */
   markRead(id: string, trapId: TrapId, at: number): Promise<void>;
   finish(id: string, at: number): Promise<void>;

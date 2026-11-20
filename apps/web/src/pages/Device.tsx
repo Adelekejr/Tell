@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { CLOUD_MODEL } from '@tell/shared';
 import { InferenceBadge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -9,6 +9,7 @@ import type { DeviceAvailability } from '../ai/source';
 import type * as Hybrid from '../ai/hybrid';
 import type { Answer } from '../ai/hybrid';
 import { usePageTitle } from '../lib/title';
+import { initialModelState, modelReducer } from '../components/prompt-drill-state';
 
 type HybridModule = typeof Hybrid;
 
@@ -28,16 +29,16 @@ const AVAILABILITY_TEXT: Record<DeviceAvailability, string> = {
  */
 export function Device() {
   usePageTitle('Device check');
-  const [availability, setAvailability] = useState<DeviceAvailability | null>(null);
-  const [progress, setProgress] = useState<number | null>(null);
+  const [model, dispatchModel] = useReducer(modelReducer, initialModelState);
   const [enabling, setEnabling] = useState(false);
   const [asking, setAsking] = useState(false);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hybrid = useRef<HybridModule | null>(null);
+  const requestId = useRef(0);
 
   useEffect(() => {
-    void checkDeviceAvailability().then(setAvailability);
+    void checkDeviceAvailability().then((availability) => dispatchModel({ type: 'availability-observed', requestId: 0, availability }));
     // Load the AI module early so the button click keeps its user activation.
     if (isConfigured) {
       void import('../ai/hybrid').then((m) => {
@@ -46,20 +47,23 @@ export function Device() {
     }
   }, []);
 
-  const canEnable = isConfigured && (availability === 'downloadable' || availability === 'downloading' || availability === 'available');
+  const availability = model.availability;
+  const progress = model.download.kind === 'running' ? model.download.progress : null;
+  const canEnable = isConfigured && model.download.kind !== 'running' && (availability === 'downloadable' || availability === 'downloading' || availability === 'available');
 
   async function enable() {
+    const id = ++requestId.current;
     setError(null);
+    dispatchModel({ type: 'download-started', requestId: id });
     setEnabling(true);
-    setProgress(0);
     try {
       const m = hybrid.current ?? (await import('../ai/hybrid'));
-      await m.enableOnDevice((v) => setProgress(v));
-      setProgress(1);
-      setAvailability(await checkDeviceAvailability());
+      await m.enableOnDevice((v) => dispatchModel({ type: 'download-progress', requestId: id, progress: v }));
+      const observed = await checkDeviceAvailability();
+      dispatchModel({ type: 'download-succeeded', requestId: id, availability: observed });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn\u2019t start on-device AI.');
-      setProgress(null);
+      dispatchModel({ type: 'download-failed', requestId: id });
     } finally {
       setEnabling(false);
     }

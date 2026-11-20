@@ -1,12 +1,12 @@
 /** Which model the drill can use right now, and the line that explains it. */
-import { config, isConfigured } from '../ai/config';
+import { isConfigured } from '../ai/config';
 import type { DrillMode } from '../ai/modes';
 import { PROBLEM_TEXT } from '../ai/modes';
 import type { DeviceAvailability } from '../ai/source';
 
-/** The cloud path works only once App Check has a site key: AI Logic enforces it. */
+/** Cloud mode is available whenever the AI project is configured; verification is optional. */
 export function cloudReady(): boolean {
-  return isConfigured && Boolean(config.appCheck.siteKey);
+  return isConfigured;
 }
 
 export const DEVICE_TEXT: Record<DeviceAvailability, { tag: string; line: string }> = {
@@ -42,10 +42,9 @@ export function pickEngine(
       mode: null,
       line:
         device === 'downloadable' || device === 'downloading'
-          ? 'Enable on-device AI to run the drill. The cloud is off until App Check is set up.'
-          : 'This device can\u2019t run on-device AI, and the cloud is off until App Check is set up. Try Chrome on a desktop computer.',
+          ? 'Enable on-device AI to run the drill. Cloud AI isn\u2019t set up for this copy of Tell.'
+          : 'This device can\u2019t run on-device AI, and cloud AI isn\u2019t set up for this copy of Tell. Try Chrome on a desktop computer.',
     };
   }
   return { mode: null, line: 'On-device isn\u2019t available on this device. Turn on Allow cloud, or use Chrome desktop for on-device.' };
 }
-

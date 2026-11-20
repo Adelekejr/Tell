@@ -58,21 +58,50 @@ describe('home fan', () => {
     expect(cards()[3]!.getAttribute('aria-label')).toBe('The Whisper, face down');
   });
 
-  it('a pull follows the pointer a little, springs back on release, and is not a flip', () => {
+  it('a vertical pull follows the pointer a little, springs back on release, and is not a flip', () => {
     setReducedMotion(false);
     render(<Fan />);
     const c = cards()[1]!;
     fireEvent.pointerDown(c, { pointerId: 1, button: 0, clientX: 100, clientY: 100 });
-    fireEvent.pointerMove(c, { pointerId: 1, clientX: 400, clientY: 100 });
-    const dx = parseFloat(slot(1).style.getPropertyValue('--dx'));
-    expect(dx).toBeGreaterThan(20);
-    expect(dx).toBeLessThan(36);
+    fireEvent.pointerMove(c, { pointerId: 1, clientX: 100, clientY: 400 });
+    const dy = parseFloat(slot(1).style.getPropertyValue('--dy'));
+    expect(dy).toBeGreaterThan(20);
+    expect(dy).toBeLessThan(24);
     expect(slot(1).className).toContain('is-dragging');
-    fireEvent.pointerUp(c, { pointerId: 1, clientX: 400, clientY: 100 });
+    fireEvent.pointerUp(c, { pointerId: 1, clientX: 100, clientY: 400 });
     fireEvent.click(c);
-    expect(slot(1).style.getPropertyValue('--dx')).toBe('0px');
+    expect(slot(1).style.getPropertyValue('--dy')).toBe('0px');
     expect(slot(1).className).not.toContain('is-dragging');
     expect(c.getAttribute('aria-label')).toBe('Ghost Letters, face down');
+  });
+
+  it('a horizontal swipe rotates every card one slot, keeps taps, and wraps', () => {
+    setReducedMotion(false);
+    render(<Fan />);
+    const whisper = cards()[3]!;
+    fireEvent.pointerDown(whisper, { pointerId: 3, button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(whisper, { pointerId: 3, clientX: 40, clientY: 102 });
+    fireEvent.pointerUp(whisper, { pointerId: 3, clientX: 40, clientY: 102 });
+    fireEvent.click(whisper);
+    expect(cards().map((c) => c.getAttribute('aria-label'))).toEqual([
+      'Ghost Letters, face down',
+      'The Cipher, face down',
+      'The Whisper, face down',
+      'The Hashtag, face down',
+      'The Postcard, face down',
+      'The Impostor, face down',
+      'Invisible Ink, face down',
+    ]);
+    expect(slot(3).style.getPropertyValue('--lift')).toBe('-22px');
+    fireEvent.click(cards()[3]!);
+    expect(cards()[3]!.getAttribute('aria-label')).toMatch(/^The Hashtag: /);
+
+    const center = cards()[3]!;
+    fireEvent.pointerDown(center, { pointerId: 4, button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(center, { pointerId: 4, clientX: 160, clientY: 101 });
+    fireEvent.pointerUp(center, { pointerId: 4, clientX: 160, clientY: 101 });
+    fireEvent.click(center);
+    expect(cards().map((c) => c.getAttribute('aria-label'))[3]).toMatch(/^The Whisper/);
   });
 
   it('a cancelled pull (the page scrolled) also springs back', () => {
@@ -97,6 +126,18 @@ describe('home fan', () => {
     expect(slot(0).style.getPropertyValue('--dx')).toBe('');
     fireEvent.click(c);
     expect(c.getAttribute('aria-label')).toMatch(/^Invisible Ink: /);
+  });
+
+  it('still rotates on a horizontal swipe with reduced motion and does not pull the card', () => {
+    setReducedMotion(true);
+    render(<Fan />);
+    const card = cards()[0]!;
+    fireEvent.pointerDown(card, { pointerId: 8, button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(card, { pointerId: 8, clientX: 40, clientY: 101 });
+    expect(slot(0).style.getPropertyValue('--dx')).toBe('');
+    fireEvent.pointerUp(card, { pointerId: 8, clientX: 40, clientY: 101 });
+    fireEvent.click(card);
+    expect(cards()[0]!.getAttribute('aria-label')).toBe('Ghost Letters, face down');
   });
 
   it('the pull resists: it never passes its limit', () => {

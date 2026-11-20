@@ -44,6 +44,10 @@ export function useRun(id: string): RunState {
 
     tickRef.current = async () => {
       if (!live.current) return;
+      if (timer.current !== null) {
+        window.clearTimeout(timer.current);
+        timer.current = null;
+      }
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       controller?.abort();
       controller = new AbortController();
@@ -56,7 +60,7 @@ export function useRun(id: string): RunState {
         dispatch({ type: 'success', requestId: currentRequest, run: next });
         if (next.status === 'open') schedule(FAST_MS);
       } catch (err) {
-        if (!live.current || (err instanceof DOMException && err.name === 'AbortError')) return;
+        if (!live.current || (err instanceof Error && err.name === 'AbortError')) return;
         const e = err instanceof ApiError ? err : new ApiError('network', 'Couldn\u2019t reach the run.', 0);
         if (e.status === 404 || e.code === 'not-configured') {
           dispatch({ type: 'failure', requestId: currentRequest, error: e, failures: failCount, showError: true });

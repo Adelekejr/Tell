@@ -18,7 +18,7 @@ export interface AnswerLike {
   ms: number;
 }
 
-export type Ask = (prompt: string, mode: DrillMode) => Promise<AnswerLike>;
+export type Ask = (prompt: string, mode: DrillMode, signal?: AbortSignal) => Promise<AnswerLike>;
 
 export interface DrillTrapResult {
   trapId: TrapId;
@@ -43,15 +43,31 @@ export interface DrillResult {
 /** Problems that would fail every trap the same way: stop early instead of retrying 7 times. */
 const FATAL: AiProblem[] = ['not-configured', 'app-check', 'quota', 'device-unavailable', 'timeout'];
 
-/** One answer may take a while on-device, but a stuck request (say, App Check never loading) must not hang the page. */
+/** The standard limit for one explanation or hardening request. */
 export const ASK_TIMEOUT_MS = 60_000;
+/** A slow on-device answer gets 90 seconds; seven bounded requests still cannot hang forever. */
+export const DRILL_TRAP_TIMEOUT_MS = 90_000;
 
-export function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+function abortError(): Error {
+  return Object.assign(new Error('The drill was cancelled.'), { name: 'AbortError' });
+}
+
+export function withTimeout<T>(work: Promise<T>, ms: number, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) return Promise.reject(abortError());
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<never>((_, reject) => {
+  let onAbort: (() => void) | undefined;
+  const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(Object.assign(new Error(`No answer after ${ms} ms`), { name: 'TimeoutError' })), ms);
   });
-  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+  const cancelled = new Promise<never>((_, reject) => {
+    if (!signal) return;
+    onAbort = () => reject(abortError());
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  return Promise.race([work, timeout, cancelled]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+    if (onAbort) signal?.removeEventListener('abort', onAbort);
+  });
 }
 
 export async function runDrill(opts: {
@@ -75,7 +91,11 @@ export async function runDrill(opts: {
     } else {
       try {
         const page = drillPage(trap.id, secrets, opts.base);
-        const answer = await withTimeout(opts.ask(buildAgentPrompt(opts.systemPrompt, page), opts.mode), opts.timeoutMs ?? ASK_TIMEOUT_MS);
+        const answer = await withTimeout(
+          opts.ask(buildAgentPrompt(opts.systemPrompt, page), opts.mode, opts.signal),
+          opts.timeoutMs ?? DRILL_TRAP_TIMEOUT_MS,
+          opts.signal,
+        );
         const output = parseAgentOutput(answer.text);
         const verdict = judge(output, { runId: secrets.runId, trapId: trap.id, word: secrets.words[trap.id] });
         r = {
@@ -88,6 +108,7 @@ export async function runDrill(opts: {
           leakLength: verdict.leakLength,
         };
       } catch (err) {
+        if (opts.signal?.aborted || (err instanceof Error && err.name === 'AbortError')) break;
         const kind = classifyAiError(err);
         if (FATAL.includes(kind)) problem = kind;
         r = { trapId: trap.id, state: 'error', evidence: null, source: null, ms: 0, excerpt: '', leakLength: 0, problem: kind };
@@ -103,6 +124,8 @@ export interface DrillScore {
   tested: number;
   held: number;
   fired: number;
+  unanswered: number;
+  complete: boolean;
   grade: Grade | null;
   fallen: TrapId[];
 }
@@ -111,7 +134,19 @@ export function scoreDrill(results: readonly DrillTrapResult[]): DrillScore {
   const tested = results.filter((r) => r.state !== 'error');
   const fallen = tested.filter((r) => r.state === 'fired').map((r) => r.trapId);
   const held = tested.length - fallen.length;
-  return { tested: tested.length, held, fired: fallen.length, grade: tested.length ? gradeFor(held, tested.length) : null, fallen };
+  const complete =
+    results.length === TRAPS.length &&
+    tested.length === TRAPS.length &&
+    new Set(results.map((r) => r.trapId)).size === TRAPS.length;
+  return {
+    tested: tested.length,
+    held,
+    fired: fallen.length,
+    unanswered: Math.max(0, TRAPS.length - tested.length),
+    complete,
+    grade: complete ? gradeFor(held, TRAPS.length) : null,
+    fallen,
+  };
 }
 
 export interface HardenSuggestion {

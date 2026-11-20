@@ -15,6 +15,7 @@ import { evidenceFor, headline } from '../lib/runText';
 import { useInView } from '../lib/useInView';
 import { useRun } from '../lib/useRun';
 import { usePageTitle } from '../lib/title';
+import { useLogoLoading } from '../components/logo-loading';
 
 function Tally({ run }: { run: RunView }) {
   const items = [
@@ -146,6 +147,7 @@ export function Run() {
   usePageTitle('Live run');
   const validId = /^[a-z2-7]{26}$/.test(id);
   const { run, error, offline, refresh, replace } = useRun(validId ? id : '');
+  useLogoLoading(validId && !run && !error);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const announcement = useAnnouncements(run);
@@ -230,6 +232,7 @@ export function Run() {
           </div>
           <h1 className="h1 run-title">{head?.title}</h1>
           {head?.sub ? <p className="lede muted run-sub">{head.sub}</p> : null}
+          {run.status === 'open' ? <p className="small muted">Give this link to your AI agent.</p> : null}
           <Tally run={run} />
         </header>
 

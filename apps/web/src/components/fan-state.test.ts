@@ -24,4 +24,13 @@ describe('Fan transitions', () => {
     expect(fanReducer(initial, { type: 'drag-start', index: -1 })).toBe(initial);
     expect(fanReducer(initial, { type: 'drag-end', index: 0 })).toBe(initial);
   });
+
+  it('rotates one slot in either direction and wraps around the seven-card deck', () => {
+    const initial = initialFanState();
+    expect(initial.rotation).toBe(0);
+    expect(fanReducer(initial, { type: 'rotate', step: 1 }).rotation).toBe(1);
+    const right = fanReducer(initial, { type: 'rotate', step: -1 });
+    expect(right.rotation).toBe(6);
+    expect(fanReducer(right, { type: 'rotate', step: 1 }).rotation).toBe(0);
+  });
 });

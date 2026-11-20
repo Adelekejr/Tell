@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { RUN_TTL_MS } from '@tell/shared';
@@ -6,7 +6,8 @@ import { Button } from '../components/Button';
 import { Notice } from '../components/Notice';
 import { TaskBox } from '../components/TaskBox';
 import type { SavedRun } from '../lib/api';
-import { ApiError, clearLastRun, createRun, loadLastRun, saveLastRun } from '../lib/api';
+import { ApiError, clearLastRun, createRun, getRun, loadLastRun, saveLastRun } from '../lib/api';
+import { useLogoLoading } from '../components/logo-loading';
 import { usePageTitle } from '../lib/title';
 
 type Tab = 'live' | 'drill';
@@ -14,6 +15,11 @@ const HOURS = RUN_TTL_MS / 3_600_000;
 
 // The drill pulls in the trap pages and the detector; load it only when its tab opens.
 const PromptDrill = lazy(() => import('../components/PromptDrill').then((m) => ({ default: m.PromptDrill })));
+
+function DrillLoadingFallback() {
+  useLogoLoading(true);
+  return <p className="small muted lab-drill">Loading the drill…</p>;
+}
 
 /** ?sample=weak|strong opens the drill with a made-up sample prompt (from the Try it section). */
 function sampleOf(v: string | null): 'weak' | 'strong' | null {
@@ -35,21 +41,49 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 }
 
 function LiveTest() {
-  const [run, setRun] = useState<SavedRun | null>(() => loadLastRun());
+  const [run, setRun] = useState<SavedRun | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const request = useRef(0);
+
+  useEffect(() => {
+    const saved = loadLastRun();
+    if (!saved) return;
+    const requestId = ++request.current;
+    void getRun(saved.id).then((view) => {
+      if (requestId !== request.current) return;
+      if (view.status !== 'open') {
+        clearLastRun();
+        return;
+      }
+      saveLastRun(view);
+      setRun({ id: view.id, label: view.label, task: view.task, expiresAt: view.expiresAt });
+    }).catch((err) => {
+      if (requestId !== request.current) return;
+      if (err instanceof ApiError && (err.status === 404 || err.status === 410 || err.code === 'not-found')) {
+        clearLastRun();
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Something went wrong. Retry in a moment.');
+      }
+    });
+    return () => {
+      if (request.current === requestId) request.current += 1;
+    };
+  }, []);
 
   const start = async () => {
+    const requestId = ++request.current;
     setBusy(true);
     setError(null);
     try {
       const view = await createRun();
+      if (requestId !== request.current) return;
       saveLastRun(view);
       setRun({ id: view.id, label: view.label, task: view.task, expiresAt: view.expiresAt });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Retry in a moment.');
+      if (requestId === request.current) setError(err instanceof ApiError ? err.message : 'Something went wrong. Retry in a moment.');
     } finally {
-      setBusy(false);
+      if (requestId === request.current) setBusy(false);
     }
   };
 
@@ -94,6 +128,7 @@ function LiveTest() {
             type="button"
             className="linkish small"
             onClick={() => {
+              request.current += 1;
               clearLastRun();
               setRun(null);
             }}
@@ -155,7 +190,7 @@ export function Lab() {
         </div>
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="lab-tabpanel">
           {tab === 'live' ? <LiveTest /> : (
-            <Suspense fallback={<p className="small muted lab-drill">Loading the drill{'\u2026'}</p>}>
+            <Suspense fallback={<DrillLoadingFallback />}>
               <PromptDrill sample={sample} />
             </Suspense>
           )}

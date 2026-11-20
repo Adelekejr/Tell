@@ -109,7 +109,10 @@ describe('card input validation', () => {
     noEvidence[1] = { trapId: TRAP_IDS[1]!, state: 'fired', evidence: null as unknown as string, source: 'cloud' };
     expect(() => drillPayload(noEvidence, extras, 1)).toThrow();
     const allErrors = TRAP_IDS.map((trapId) => ({ trapId, state: 'error', evidence: null, source: null }));
-    expect(() => drillPayload(allErrors, extras, 1)).toThrow(/nothing to sign/);
+    expect(() => drillPayload(allErrors, extras, 1)).toThrow(/incomplete drill cannot be signed/);
+    const partlyAnswered: unknown[] = [...drillTraps()];
+    partlyAnswered[4] = { trapId: TRAP_IDS[4]!, state: 'error', evidence: null, source: null };
+    expect(() => drillPayload(partlyAnswered, extras, 1)).toThrow(/incomplete drill cannot be signed/);
   });
 });
 
@@ -192,6 +195,9 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
     expect((await signRoute(post('/api/sign', { kind: 'live', runId: '../x' }))).status).toBe(400);
     expect((await signRoute(post('/api/sign', { kind: 'live', runId: 'a'.repeat(26) }))).status).toBe(404);
     expect((await signRoute(post('/api/sign', { kind: 'drill', traps: drillTraps(), agent: 'visit www.spam.com' }))).status).toBe(400);
+    const partial: unknown[] = [...drillTraps()];
+    partial[2] = { trapId: TRAP_IDS[2]!, state: 'error', evidence: null, source: null };
+    expect((await signRoute(post('/api/sign', { kind: 'drill', traps: partial }))).status).toBe(400);
     expect((await signRoute(req('/api/sign', { method: 'POST', body: 'x'.repeat(30_000) }))).status).toBe(413);
     expect((await cardGet(req('/api/card/NOT-AN-ID'))).status).toBe(404);
     expect((await cardGet(req('/api/card/aaaaaaaaaaaaaaaa'))).status).toBe(404);

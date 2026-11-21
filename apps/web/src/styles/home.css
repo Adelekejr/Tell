@@ -23,24 +23,20 @@
   margin: var(--s6) 0 var(--s2);
 }
 .fan-card {
-  --dx: 0px;
-  --dy: 0px;
-  --dr: 0deg;
-  --up: 0px;
   position: absolute;
   bottom: 26px;
   left: 50%;
   width: 118px;
   margin-left: -59px;
   transform-origin: 50% 230%;
-  transform: translate(var(--dx), var(--dy)) rotate(calc(var(--rot) + var(--dr))) translateY(calc(var(--lift, 0px) + var(--up)));
-  transition: transform 320ms var(--ease-out);
+  /* Placed frame by frame from the ring position (see Fan.tsx): transforms and opacity only. */
+  will-change: transform, opacity;
   animation: deal 400ms var(--ease-out) backwards;
   animation-delay: calc(var(--i) * 60ms);
 }
-/* A turned card rises a little so its face reads; a pulled one follows the pointer, then settles back. */
-.fan-card.is-up {
-  --up: -14px;
+.fan-card img {
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
 .fan-card .tcard {
   display: block;
@@ -342,9 +338,6 @@
   .fan-card .tcard-inner {
     animation: none;
     transition: none;
-  }
-  .fan-card.is-up {
-    --up: 0px;
   }
 }
 

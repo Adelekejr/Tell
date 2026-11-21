@@ -2,36 +2,39 @@ import { useEffect, useReducer, useRef } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { getTrap, trapNumber } from '@tell/shared';
 import type { TrapId, TrapInfo } from '@tell/shared';
-import { rubber, useReducedMotion } from '../lib/motion';
+import { useReducedMotion } from '../lib/motion';
 import { CardBack, CardFront } from './TrapCard';
-import { fanCardIsUp, fanReducer, initialFanState } from './fan-state';
+import { FAN_CARD_COUNT, fanCardIsUp, fanOffset, fanReducer, fanZ, initialFanState, swipeSteps } from './fan-state';
 
-/** Fan order, left to right. The Whisper sits raised in the middle. */
-const FAN: { id: TrapId; rot: number; lift?: number; z: number; hero?: boolean }[] = [
-  { id: 'invisible-ink', rot: -24, z: 0 },
-  { id: 'ghost-letters', rot: -16, z: 1 },
-  { id: 'cipher', rot: -8, z: 2 },
-  { id: 'whisper', rot: 0, lift: -22, z: 9, hero: true },
-  { id: 'hashtag', rot: 8, z: 4 },
-  { id: 'postcard', rot: 16, z: 5 },
-  { id: 'impostor', rot: 24, z: 6 },
+/** The hand in number order. The Whisper starts at the front. */
+const FAN: { id: TrapId; hero?: boolean }[] = [
+  { id: 'invisible-ink' },
+  { id: 'ghost-letters' },
+  { id: 'cipher' },
+  { id: 'whisper', hero: true },
+  { id: 'hashtag' },
+  { id: 'postcard' },
+  { id: 'impostor' },
 ];
 
 const DEAL_STAGGER = 60;
 const DEAL_MS = 400;
-/** Pointer travel (px) before a press counts as a drag instead of a tap. */
+/** Degrees between neighbouring cards. */
+const SPREAD = 8;
+/** How far the front card stands up. */
+const FRONT_LIFT = -22;
+/** Pointer travel (px) before a press counts as a swipe instead of a tap. */
 const DRAG_SLOP = 6;
-/** Horizontal travel before a gesture turns the fan by one card. */
-const SWIPE_THRESHOLD = 36;
-/** How far a card can be pulled before it resists completely. */
-const MAX_X = 36;
-const MAX_Y = 24;
+/** Wheel travel that turns one card, and the quiet gap that ends a wheel gesture. */
+const WHEEL_THRESHOLD = 24;
+const WHEEL_QUIET_MS = 220;
+const WHEEL_REPEAT_MS = 650;
 
-interface Drag {
+interface Swipe {
   id: number;
   x: number;
   y: number;
-  moved: boolean;
+  t: number;
   axis: 'pending' | 'horizontal' | 'vertical';
 }
 
@@ -53,113 +56,153 @@ function TrickFace({ trap }: { trap: TrapInfo }) {
 }
 
 /**
- * Home hero: the seven trap cards are dealt into a fan, then the raised card
- * flips to "Tell!". Visitors can flip any card (tap, Enter or Space) and pull
- * one a little; it springs back on release. Arrow keys move between cards.
- * With reduced motion the hand is shown at once, flips crossfade and the
- * cards don't follow the pointer.
+ * Home hero: the seven trap cards are dealt into a fan, then the front card
+ * flips to "Tell!". The fan turns all the way round in either direction: swipe
+ * or drag sideways, use the mouse wheel or trackpad, or the arrow keys. Tap a
+ * card further round and the fan rolls the short way until it is at the front;
+ * tap the front card to turn it over and see what that trap tests. Every card's
+ * place, tilt and stacking come from one number, its offset from the front, so
+ * the hand reads in number order whichever way it turns.
  */
 export function Fan() {
   const reduced = useReducedMotion();
   const [fan, dispatch] = useReducer(fanReducer, undefined, initialFanState);
+  const root = useRef<HTMLDivElement | null>(null);
   const cards = useRef<(HTMLButtonElement | null)[]>([]);
-  const drag = useRef<Drag | null>(null);
+  const swipe = useRef<Swipe | null>(null);
+  const swallowClick = useRef(false);
+  const keyboard = useRef(false);
 
-  // After the deal, the hero turns over on its own, unless the visitor got there first.
+  // After the deal, the front card turns over on its own, unless the visitor got there first.
   useEffect(() => {
     if (reduced) return;
     const t = window.setTimeout(() => dispatch({ type: 'hero-dealt' }), FAN.length * DEAL_STAGGER + DEAL_MS + 140);
     return () => window.clearTimeout(t);
   }, [reduced]);
-  const isUp = (i: number) => fanCardIsUp(fan, i, reduced);
 
-  function place(el: HTMLElement, dx: number, dy: number) {
-    el.style.setProperty('--dx', `${dx}px`);
-    el.style.setProperty('--dy', `${dy}px`);
-    el.style.setProperty('--dr', `${dx * 0.1}deg`);
-  }
+  // Keyboard turns keep focus on the card that came to the front.
+  useEffect(() => {
+    if (!keyboard.current) return;
+    keyboard.current = false;
+    cards.current[fan.active]?.focus();
+  }, [fan.active]);
 
-  function release(i: number, el: HTMLElement) {
-    drag.current = null;
-    place(el, 0, 0);
-    dispatch({ type: 'drag-end', index: i });
-  }
+  // Mouse wheel and trackpad: one card per gesture, whichever axis it scrolls on.
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    let total = 0;
+    let locked = false;
+    let lockedAt = 0;
+    let quiet: number | null = null;
+    const onWheel = (e: WheelEvent) => {
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!delta) return;
+      e.preventDefault();
+      if (quiet !== null) window.clearTimeout(quiet);
+      quiet = window.setTimeout(() => {
+        locked = false;
+        total = 0;
+        quiet = null;
+      }, WHEEL_QUIET_MS);
+      const now = Date.now();
+      if (locked && now - lockedAt < WHEEL_REPEAT_MS) return;
+      locked = false;
+      total += delta;
+      if (Math.abs(total) < WHEEL_THRESHOLD) return;
+      dispatch({ type: 'rotate', step: total > 0 ? 1 : -1 });
+      total = 0;
+      locked = true;
+      lockedAt = now;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      if (quiet !== null) window.clearTimeout(quiet);
+    };
+  }, []);
 
-  function onPointerDown(i: number, e: PointerEvent<HTMLButtonElement>) {
+  function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (e.button !== 0) return;
-    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, axis: 'pending' };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
+    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, axis: 'pending' };
   }
 
-  function onPointerMove(i: number, e: PointerEvent<HTMLButtonElement>) {
-    const d = drag.current;
-    if (!d || d.id !== e.pointerId) return;
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    if (d.axis === 'pending' && Math.hypot(dx, dy) < DRAG_SLOP) return;
-    if (d.axis === 'pending') {
-      d.moved = true;
-      d.axis = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
-      if (d.axis === 'vertical' && !reduced) dispatch({ type: 'drag-start', index: i });
-    }
-    if (d.axis === 'vertical' && !reduced) {
-      const slot = e.currentTarget.parentElement;
-      if (slot) place(slot, rubber(dx, MAX_X), rubber(dy, MAX_Y));
-    }
+  function onPointerMove(e: PointerEvent<HTMLDivElement>) {
+    const s = swipe.current;
+    if (!s || s.id !== e.pointerId || s.axis !== 'pending') return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.hypot(dx, dy) < DRAG_SLOP) return;
+    s.axis = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
+    // Keep following a sideways mouse drag that leaves the fan.
+    if (s.axis === 'horizontal') e.currentTarget.setPointerCapture?.(e.pointerId);
   }
 
-  function onPointerEnd(i: number, e: PointerEvent<HTMLButtonElement>) {
-    const d = drag.current;
-    if (!d || d.id !== e.pointerId) return;
-    const slot = e.currentTarget.parentElement;
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    if (d.axis === 'vertical' && !reduced && slot) release(i, slot);
-    else {
-      drag.current = null;
-      if (slot) place(slot, 0, 0);
+  function onPointerEnd(e: PointerEvent<HTMLDivElement>) {
+    const s = swipe.current;
+    if (!s || s.id !== e.pointerId) return;
+    swipe.current = null;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (s.axis === 'pending') return;
+    // Any real movement ends in a click that isn't a tap; let it pass without selecting.
+    if (e.type === 'pointerup') {
+      swallowClick.current = true;
+      window.setTimeout(() => (swallowClick.current = false), 400);
     }
-    if (e.type === 'pointerup' && d.axis === 'horizontal' && Math.abs(dx) >= SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
-      dispatch({ type: 'rotate', step: dx < 0 ? 1 : -1 });
-    }
-    // A drag ends in the click that follows pointerup; swallow that one click.
-    if (d.moved && e.type === 'pointerup') e.currentTarget.dataset.dragged = '1';
+    if (e.type !== 'pointerup' || s.axis !== 'horizontal' || Math.abs(dx) <= Math.abs(dy)) return;
+    const step = swipeSteps(dx, e.timeStamp - s.t);
+    if (step) dispatch({ type: 'rotate', step });
   }
 
-  function onClick(i: number, el: HTMLButtonElement) {
-    if (el.dataset.dragged) {
-      delete el.dataset.dragged;
+  function onClick(i: number) {
+    if (swallowClick.current) {
+      swallowClick.current = false;
       return;
     }
-    dispatch({ type: 'flip', index: i, reduced });
+    dispatch({ type: 'select', index: i, reduced });
   }
 
-  function onKeyDown(i: number, e: KeyboardEvent<HTMLButtonElement>) {
+  function onKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-    const slot = (i - fan.rotation + FAN.length) % FAN.length;
-    let nextSlot = step ? (slot + step + FAN.length) % FAN.length : -1;
-    if (e.key === 'Home') nextSlot = 0;
-    if (e.key === 'End') nextSlot = FAN.length - 1;
-    if (nextSlot < 0) return;
-    const next = (nextSlot + fan.rotation) % FAN.length;
+    if (!step) return;
     e.preventDefault();
-    dispatch({ type: 'focus', index: next });
-    cards.current[next]?.focus();
+    keyboard.current = true;
+    dispatch({ type: 'rotate', step });
   }
+
+  const front = getTrap(FAN[fan.active]!.id);
 
   return (
-    <div className="fan" role="toolbar" aria-label="The seven trap cards. Press a card to flip it.">
-      {FAN.map((shape, slot) => {
-        const i = (slot + fan.rotation) % FAN.length;
-        const c = FAN[i]!;
+    <div
+      ref={root}
+      className="fan"
+      role="toolbar"
+      aria-label="The seven trap cards. Swipe, scroll or use the arrow keys to turn the fan. Press the front card to flip it."
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerEnd}
+      onPointerCancel={onPointerEnd}
+      onLostPointerCapture={onPointerEnd}
+    >
+      {FAN.map((c, i) => {
         const trap = getTrap(c.id);
-        const faceUp = isUp(i);
-        const z = fan.dragging === i ? 30 : fan.top === i ? 20 : faceUp && c.hero ? 12 : shape.z;
+        const faceUp = fanCardIsUp(fan, i, reduced);
+        const offset = fanOffset(i, fan.active);
+        const atFront = offset === 0;
         return (
           <div
             key={c.id}
-            className={`fan-card${fan.dragging === i ? ' is-dragging' : ''}${faceUp ? ' is-up' : ''}`}
-            style={{ '--rot': `${shape.rot}deg`, '--lift': `${shape.lift ?? 0}px`, '--i': slot, zIndex: z } as CSSProperties}
+            className={`fan-card${faceUp ? ' is-up' : ''}${atFront ? ' is-front' : ''}`}
+            data-offset={offset}
+            style={
+              {
+                '--rot': `${offset * SPREAD}deg`,
+                '--lift': `${atFront ? FRONT_LIFT : 0}px`,
+                '--i': i,
+                zIndex: fanZ(offset),
+              } as CSSProperties
+            }
           >
             <button
               ref={(el) => {
@@ -167,16 +210,14 @@ export function Fan() {
               }}
               type="button"
               className={`tcard${faceUp ? ' is-flipped' : ''}`}
-              tabIndex={fan.focus === i ? 0 : -1}
-              aria-label={faceUp ? `${trap.name}: ${c.hero ? 'Tell! It fired.' : trap.trick}` : `${trap.name}, face down`}
-              onClick={(e) => onClick(i, e.currentTarget)}
-              onKeyDown={(e) => onKeyDown(i, e)}
-              onFocus={() => dispatch({ type: 'focus', index: i })}
-              onPointerDown={(e) => onPointerDown(i, e)}
-              onPointerMove={(e) => onPointerMove(i, e)}
-              onPointerUp={(e) => onPointerEnd(i, e)}
-              onPointerCancel={(e) => onPointerEnd(i, e)}
-              onLostPointerCapture={(e) => onPointerEnd(i, e)}
+              tabIndex={atFront ? 0 : -1}
+              aria-label={
+                faceUp
+                  ? `${trap.name}: ${c.hero ? 'Tell! It fired.' : trap.trick}`
+                  : `${trap.name}, face down${atFront ? '' : '. Press to bring it to the front.'}`
+              }
+              onClick={() => onClick(i)}
+              onKeyDown={onKeyDown}
             >
               <div className="tcard-inner" aria-hidden="true">
                 <CardBack trap={trap} label="" />
@@ -186,6 +227,9 @@ export function Fan() {
           </div>
         );
       })}
+      <p className="sr-only" aria-live="polite">
+        {`${trapNumber(front.no)} of ${FAN_CARD_COUNT}, ${front.name}, at the front.`}
+      </p>
     </div>
   );
 }

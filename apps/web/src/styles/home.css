@@ -17,6 +17,9 @@
 .fan {
   position: relative;
   height: 236px;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
   margin: var(--s6) 0 var(--s2);
 }
 .fan-card {
@@ -39,9 +42,6 @@
 .fan-card.is-up {
   --up: -14px;
 }
-.fan-card.is-dragging {
-  transition: none;
-}
 .fan-card .tcard {
   display: block;
   width: 100%;
@@ -54,9 +54,6 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-}
-.fan-card.is-dragging .tcard {
-  cursor: grabbing;
 }
 .fan-card .tcard-inner {
   transition:

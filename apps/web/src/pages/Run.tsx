@@ -11,7 +11,7 @@ import { TaskBox } from '../components/TaskBox';
 import { TrapCard } from '../components/TrapCard';
 import { ApiError, checkReply, finishRun } from '../lib/api';
 import { clock } from '../lib/copy';
-import { evidenceFor, headline } from '../lib/runText';
+import { evidenceFor, noVisitYet, headline } from '../lib/runText';
 import { useInView } from '../lib/useInView';
 import { useRun } from '../lib/useRun';
 import { usePageTitle } from '../lib/title';
@@ -147,8 +147,9 @@ export function Run() {
   usePageTitle('Live run');
   const validId = /^[a-z2-7]{26}$/.test(id);
   const { run, error, offline, refresh, replace } = useRun(validId ? id : '');
-  useLogoLoading(validId && !run && !error);
   const [finishing, setFinishing] = useState(false);
+  // The logo sways the whole time the run is open, and settles once it is finished.
+  useLogoLoading((validId && !run && !error) || run?.status === 'open' || finishing);
   const [finishError, setFinishError] = useState<string | null>(null);
   const announcement = useAnnouncements(run);
   const finished = run ? run.status !== 'open' : false;
@@ -233,6 +234,12 @@ export function Run() {
           <h1 className="h1 run-title">{head?.title}</h1>
           {head?.sub ? <p className="lede muted run-sub">{head.sub}</p> : null}
           {run.status === 'open' ? <p className="small muted">Give this link to your AI agent.</p> : null}
+          {noVisitYet(run) ? (
+            <Notice>
+              No agent has opened the link yet. Some chat AIs can{'\u2019'}t open links at all. Try one that can browse the web, or turn on its
+              browsing or search, then paste the task again.
+            </Notice>
+          ) : null}
           <Tally run={run} />
         </header>
 

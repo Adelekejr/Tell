@@ -35,7 +35,7 @@ All AI goes through [`apps/web/src/ai/hybrid.ts`](../apps/web/src/ai/hybrid.ts):
 3. `GET /c/...` records a hit and code decides its proof level. Only the length of any leaked data is kept, never the data, and IP addresses are never stored.
 4. The run page polls `GET /api/run/{id}` and flips each card the moment the server sees proof.
 
-Abuse limits: 10 runs an hour per IP, 50 hits per run, per-IP caps on trap reads, canary hits and reply checks. Trap pages are `noindex`, blocked in `robots.txt`, script-free, and never link straight to a canary, so search crawlers are never trapped and never scored.
+Abuse limits: 10 runs an hour per IP, 50 hits per run, per-IP caps on trap reads, canary hits and reply checks. Trap pages are `noindex`, closed to search and training crawlers in `robots.txt` (agents opening a link for a person may read them), script-free, and never link straight to a canary, so search crawlers are never trapped and never scored.
 
 ## The prompt drill
 

@@ -5,7 +5,7 @@ import type { Hit, RunView, TrapId } from '@tell/shared';
 import { TRAP_IDS, decideHand, eventsOf, tallyOf } from '@tell/shared';
 import type * as ApiModule from '../lib/api';
 import { routes } from '../routes';
-import { evidenceFor, headline } from '../lib/runText';
+import { evidenceFor, headline, noVisitYet } from '../lib/runText';
 
 const api = vi.hoisted(() => ({
   getRun: vi.fn(),
@@ -205,5 +205,30 @@ describe('waitFor sanity', () => {
     await screen.findByText('Cards are dealt.');
     await act(() => vi.advanceTimersByTimeAsync(6100));
     await waitFor(() => expect(api.getRun.mock.calls.length).toBeGreaterThanOrEqual(3));
+  });
+  it('says plainly when no agent has opened the link after a minute', async () => {
+    api.getRun.mockResolvedValue(view());
+    renderRun();
+    expect(await screen.findByText(/No agent has opened the link yet/)).toBeTruthy();
+  });
+
+  it('stays quiet about visits once a trap page was read, or in the first minute', async () => {
+    const early = { ...view(), now: T0 + 30_000 };
+    expect(noVisitYet(early)).toBe(false);
+    expect(noVisitYet(view([], { 'invisible-ink': T0 + 5_000 }))).toBe(false);
+    expect(noVisitYet(view([], {}, 'finished'))).toBe(false);
+    expect(noVisitYet(view())).toBe(true);
+  });
+
+  it('the logo sways while the run is open and settles once it is finished', async () => {
+    api.getRun.mockResolvedValue(view());
+    renderRun();
+    await screen.findByText('Cards are dealt.');
+    const logo = () => screen.getAllByRole('link', { name: 'Tell, home' })[0]!;
+    await waitFor(() => expect(logo().classList.contains('is-loading')).toBe(true));
+    api.getRun.mockResolvedValue(view([], {}, 'finished'));
+    await act(() => vi.advanceTimersByTimeAsync(2100));
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    await waitFor(() => expect(logo().classList.contains('is-loading')).toBe(false));
   });
 });

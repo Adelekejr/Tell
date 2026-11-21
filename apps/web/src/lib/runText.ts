@@ -40,3 +40,11 @@ export function headline(run: RunView): { title: string; sub: string | null } {
   return { title: 'Cards are dealt.', sub: null };
 }
 
+
+/** How long an open run waits for its first visit before saying so. */
+export const NO_VISIT_MS = 60_000;
+
+/** True when a run has been open a minute (by the server's clock) and nothing has opened any link. */
+export function noVisitYet(run: RunView): boolean {
+  return run.status === 'open' && run.events.length === 0 && run.now - run.createdAt >= NO_VISIT_MS;
+}

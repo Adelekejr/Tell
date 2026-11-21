@@ -87,6 +87,7 @@ export function Fan() {
   const frame = useRef<number | null>(null);
   const gesture = useRef<Gesture | null>(null);
   const dragged = useRef(false);
+  const tapped = useRef(false);
   const detent = useRef(FAN_HERO_INDEX);
   const focusFront = useRef(false);
   const upRef = useRef<(i: number) => boolean>(() => false);
@@ -236,6 +237,7 @@ export function Fan() {
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     dragged.current = false;
+    tapped.current = false;
     // Catch a spinning ring where it is, like a real one.
     const sp = spring.current;
     const caught = sp !== null && (Math.abs(sp.s.v) > 0.6 || Math.abs(sp.s.x - sp.target) > 0.15);
@@ -276,7 +278,16 @@ export function Fan() {
     gesture.current = null;
     if (g.mode !== 'drag') {
       // A ring caught mid-spin and let go: rest on the nearest card.
-      if (dragged.current || cancelled) settle(Math.round(pos.current));
+      if (dragged.current || cancelled) {
+        settle(Math.round(pos.current));
+        return;
+      }
+      // A tap: act on the card under the finger, without waiting for (or trusting) the click.
+      const i = cardAt(e.clientX, e.clientY, e.target);
+      if (i !== null) {
+        tapped.current = true;
+        select(i);
+      }
       return;
     }
     const first = g.samples[0]!;
@@ -286,11 +297,28 @@ export function Fan() {
     settle(flingTarget(pos.current, velocity, g.startPos), velocity);
   }
 
+  /** The card actually under a point: the browser's touch targeting can pick a neighbour on a thin sliver. */
+  function cardAt(x: number, y: number, fallback: EventTarget | null): number | null {
+    const hit = typeof document.elementFromPoint === 'function' ? document.elementFromPoint(x, y) : null;
+    for (const el of [hit, fallback instanceof Element ? fallback : null]) {
+      const card = el?.closest<HTMLElement>('.fan-card');
+      const i = card ? slots.current.indexOf(card as HTMLDivElement) : -1;
+      if (i >= 0) return i;
+    }
+    return null;
+  }
+
   function onClick(i: number) {
-    if (dragged.current) {
+    // Pointer taps are handled on release; this is the keyboard (Enter or Space).
+    if (dragged.current || tapped.current) {
       dragged.current = false;
+      tapped.current = false;
       return;
     }
+    select(i);
+  }
+
+  function select(i: number) {
     if (i === frontOf(spring.current ? spring.current.target : pos.current)) {
       dispatch({ type: 'flip', index: i, reduced });
       return;

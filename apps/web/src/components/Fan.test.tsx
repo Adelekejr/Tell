@@ -90,6 +90,19 @@ describe('home fan', () => {
     expect(cards()[3]!.getAttribute('aria-label')).toBe('The Cipher, face down');
   });
 
+  it('a pointer tap acts on release, once, even if the browser sends no click', () => {
+    setReducedMotion(true);
+    render(<Fan />);
+    fireEvent.pointerDown(cards()[4]!, { pointerId: 5, button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(cards()[4]!, { pointerId: 5, button: 0, clientX: 10, clientY: 10 });
+    expect(front()).toBe(4);
+    fireEvent.click(cards()[4]!);
+    expect(cards()[4]!.className).not.toContain('is-flipped');
+    fireEvent.pointerDown(cards()[4]!, { pointerId: 6, button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(cards()[4]!, { pointerId: 6, button: 0, clientX: 10, clientY: 10 });
+    expect(cards()[4]!.className).toContain('is-flipped');
+  });
+
   it('arrow keys turn the ring and keep focus on the front card', () => {
     setReducedMotion(true);
     render(<Fan />);

@@ -1,4 +1,5 @@
 import type { BoardEntry, BoardRange, PublicKeyInfo, RunView, SignedCard, TrapId } from '@tell/shared';
+import { trackWork } from './working';
 
 /** The Vercel API (trap pages, canaries, runs). Empty means not configured. */
 export const API_BASE = (import.meta.env.VITE_API_BASE ?? '').trim().replace(/\/+$/, '');
@@ -46,7 +47,14 @@ async function appCheckHeader(): Promise<Record<string, string>> {
   }
 }
 
-async function call<T>(path: string, init: RequestInit & { appCheck?: boolean } = {}): Promise<T> {
+type CallInit = RequestInit & { appCheck?: boolean; quiet?: boolean };
+
+/** Every API call counts as work for the logo, except quiet background polls. */
+function call<T>(path: string, init: CallInit = {}): Promise<T> {
+  return init.quiet ? send<T>(path, init) : trackWork(() => send<T>(path, init));
+}
+
+async function send<T>(path: string, { quiet: _quiet, ...init }: CallInit): Promise<T> {
   if (!API_BASE) throw new ApiError('not-configured', PLAIN['not-configured'] as string, 503);
   const headers: Record<string, string> = { ...(init.body ? { 'content-type': 'application/json' } : {}) };
   if (init.appCheck) Object.assign(headers, await appCheckHeader());
@@ -70,7 +78,8 @@ export function createRun(): Promise<RunView> {
 }
 
 export function getRun(id: string, signal?: AbortSignal): Promise<RunView> {
-  return call<RunView>(`/api/run/${encodeURIComponent(id)}`, signal ? { signal } : {});
+  // Polled every couple of seconds; the run page shows its own working state.
+  return call<RunView>(`/api/run/${encodeURIComponent(id)}`, signal ? { signal, quiet: true } : { quiet: true });
 }
 
 export function finishRun(id: string): Promise<RunView> {

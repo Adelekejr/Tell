@@ -32,6 +32,7 @@ import {
   initialModelState,
   modelReducer,
 } from './prompt-drill-state';
+import { useLogoLoading } from './logo-loading';
 
 type HybridModule = typeof Hybrid;
 
@@ -122,6 +123,7 @@ export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {
   const hardening = hardenStage.kind === 'running';
   const drillRunning = drillStage.kind === 'running';
   const busy = drillRunning || hardening;
+  useLogoLoading(busy || progress !== null || compareStage.kind === 'running' || adoptStage.kind === 'running');
   const trimmed = prompt.trim();
   const checklist = trimmed.length >= 20 ? checkPrompt(trimmed) : null;
   const sampleOn = (Object.keys(SAMPLES) as SampleId[]).find((id) => SAMPLES[id].prompt === prompt) ?? null;

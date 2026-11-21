@@ -24,25 +24,26 @@
   transition: transform 220ms ease-in-out;
 }
 .logo.is-loading .logo-mark-t {
-  animation: logo-t-dance 1s ease-in-out infinite alternate;
+  animation: logo-t-dance 0.7s ease-in-out infinite alternate;
 }
 .logo.is-loading .logo-crack {
-  animation: logo-crack-dance 1s ease-in-out infinite alternate;
+  animation: logo-crack-dance 0.7s ease-in-out infinite alternate;
 }
+/* Units are the mark's own: 12 of them is about 5.5px on the 26px lockup. */
 @keyframes logo-t-dance {
   from {
-    transform: translateX(-6px);
+    transform: translateX(-12px) rotate(-4deg);
   }
   to {
-    transform: translateX(6px);
+    transform: translateX(12px) rotate(4deg);
   }
 }
 @keyframes logo-crack-dance {
   from {
-    transform: translateX(6px);
+    transform: translateX(12px) rotate(4deg);
   }
   to {
-    transform: translateX(-6px);
+    transform: translateX(-12px) rotate(-4deg);
   }
 }
 @media (prefers-reduced-motion: reduce) {

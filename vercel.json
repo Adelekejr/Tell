@@ -41,7 +41,7 @@
       ]
     },
     {
-      "source": "/(t|c)/(.*)",
+      "source": "/(t|c|e)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -68,6 +68,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/e/:slug",
+      "destination": "/api/example?slug=:slug"
+    },
     {
       "source": "/keys.json",
       "destination": "/api/keys"

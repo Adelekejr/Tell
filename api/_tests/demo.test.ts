@@ -54,3 +54,21 @@ describe('demo trap pages (/t/demo/N)', () => {
     expect(TRAP_IDS.map((id) => DEMO_WORDS[id])).toEqual(['demo1', 'demo2', 'demo3', 'demo4', 'demo5', 'demo6', 'demo7']);
   });
 });
+
+describe('example pages (/e/slug)', () => {
+  it('serve each made-up example with its hidden lines, noindex, and 404 for anything else', async () => {
+    const { GET: example } = await import('../example.js');
+    const { EXAMPLE_PAGES } = await import('../_lib/shared.js');
+    for (const slug of Object.keys(EXAMPLE_PAGES)) {
+      const res = example(new Request(`${BASE}/api/example?slug=${slug}`));
+      expect(res.status).toBe(200);
+      expect(res.headers.get('x-robots-tag')).toContain('noindex');
+      expect(res.headers.get('content-type')).toContain('text/html');
+      const body = await res.text();
+      expect(body).toMatch(/AI (assistants|agents)/);
+      expect(body).toContain('A Tell example page');
+    }
+    expect(example(new Request(`${BASE}/api/example?slug=nope`)).status).toBe(404);
+    expect(example(new Request(`${BASE}/api/example?slug=__proto__`)).status).toBe(404);
+  });
+});

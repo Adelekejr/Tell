@@ -35,5 +35,6 @@ User-agent: Google-Agent
 User-agent: *
 Allow: /t/
 Allow: /c/
+Allow: /e/
 Disallow: /api/
 Disallow: /

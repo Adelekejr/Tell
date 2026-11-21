@@ -40,6 +40,7 @@ describe('robots.txt', () => {
       expect(allowed(ua, '/t/abc/1'), ua).toBe(true);
       expect(allowed(ua, '/c/abc/1?w=x'), ua).toBe(true);
       expect(allowed(ua, '/t/demo/1'), ua).toBe(true);
+      expect(allowed(ua, '/e/lemon-drizzle-cake'), ua).toBe(true);
     }
   });
 

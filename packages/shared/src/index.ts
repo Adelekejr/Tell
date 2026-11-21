@@ -9,3 +9,4 @@ export * from './scorecard.js';
 export * from './board.js';
 export * from './demo.js';
 export * from './samples.js';
+export * from './example-pages.js';

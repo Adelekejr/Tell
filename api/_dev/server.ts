@@ -24,6 +24,7 @@ const modules: Record<string, () => Promise<Module>> = {
   '/api/run-finish': () => import('../run-finish.js'),
   '/api/run-reply': () => import('../run-reply.js'),
   '/api/trap': () => import('../trap.js'),
+  '/api/example': () => import('../example.js') as Promise<Module>,
   '/api/canary': () => import('../canary.js'),
   '/api/fetch': () => import('../fetch.js'),
   '/api/sign': () => import('../sign.js'),

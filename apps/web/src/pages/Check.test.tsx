@@ -3,7 +3,8 @@ import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ApiModule from '../lib/api';
 import type * as SourceModule from '../ai/source';
-import { EXAMPLE_HTML } from '../check/example';
+import { EXAMPLE_HTML, EXAMPLE_URL } from '../check/example';
+import { CHECK_EXAMPLES, TRAP_EXAMPLES, findExample } from '../check/examples';
 
 // The AI layer and the server are mocked: nothing here leaves the test.
 const m = vi.hoisted(() => ({
@@ -179,7 +180,16 @@ describe('Check page', () => {
     await open(['/check?example=white-text']);
     await submit();
     expect(screen.getByTestId('location').textContent).toBe('/check');
-    expect(m.fetchPage).toHaveBeenCalledWith('https://kettle-shop.example/steel-kettle');
+    expect(m.fetchPage).toHaveBeenCalledWith(findExample('white-text')!.input);
+  });
+
+  it('every example link is a page Tell hosts, never a made-up address that cannot open', () => {
+    for (const e of [...CHECK_EXAMPLES, ...TRAP_EXAMPLES]) {
+      if (e.kind !== 'page') continue;
+      expect(new URL(e.input).hostname.endsWith('.example'), e.id).toBe(false);
+      expect(e.input, e.id).toMatch(/\/(e|t\/demo)\//);
+    }
+    expect(EXAMPLE_URL).toMatch(/\/e\/lemon-drizzle-cake$/);
   });
 
   it('shows the server\u2019s plain reason when a link is refused', async () => {

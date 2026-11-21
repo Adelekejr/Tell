@@ -1,41 +1,48 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
-import { getTrap, trapNumber } from '@tell/shared';
-import type { TrapId, TrapInfo } from '@tell/shared';
-import { useReducedMotion } from '../lib/motion';
+import { TRAPS, trapNumber } from '@tell/shared';
+import type { TrapInfo } from '@tell/shared';
+import { tick, useReducedMotion } from '../lib/motion';
 import { CardBack, CardFront } from './TrapCard';
-import { FAN_CARD_COUNT, fanCardIsUp, fanOffset, fanReducer, fanZ, initialFanState, swipeSteps } from './fan-state';
+import {
+  FAN_CARD_COUNT,
+  FAN_HERO_INDEX,
+  cardPose,
+  dragToPos,
+  fanCardIsUp,
+  fanReducer,
+  flingTarget,
+  frontOf,
+  initialFanState,
+  ringOffset,
+  shortestTarget,
+  springDone,
+  springStep,
+  SPRING_K,
+} from './fan-state';
+import type { Spring } from './fan-state';
 
-/** The hand in number order. The Whisper starts at the front. */
-const FAN: { id: TrapId; hero?: boolean }[] = [
-  { id: 'invisible-ink' },
-  { id: 'ghost-letters' },
-  { id: 'cipher' },
-  { id: 'whisper', hero: true },
-  { id: 'hashtag' },
-  { id: 'postcard' },
-  { id: 'impostor' },
-];
+/** The hand in number order, No.01 to No.07. */
+const HAND: readonly TrapInfo[] = [...TRAPS].sort((a, b) => a.no - b.no);
 
 const DEAL_STAGGER = 60;
 const DEAL_MS = 400;
-/** Degrees between neighbouring cards. */
-const SPREAD = 8;
-/** How far the front card stands up. */
-const FRONT_LIFT = -22;
-/** Pointer travel (px) before a press counts as a swipe instead of a tap. */
-const DRAG_SLOP = 6;
-/** Wheel travel that turns one card, and the quiet gap that ends a wheel gesture. */
-const WHEEL_THRESHOLD = 24;
-const WHEEL_QUIET_MS = 220;
-const WHEEL_REPEAT_MS = 650;
+/** Pointer travel (px) before a press becomes a drag instead of a tap. */
+const DRAG_SLOP = 8;
+/** A turned card rises a little so its face reads. */
+const UP_LIFT = -14;
+/** Wheel: a mouse notch turns one card; trackpad scrolling follows, then snaps after this quiet gap. */
+const WHEEL_NOTCH = 100;
+const WHEEL_QUIET_MS = 140;
+const WHEEL_TRACKPAD_PX = 120;
 
-interface Swipe {
+interface Gesture {
   id: number;
   x: number;
   y: number;
-  t: number;
-  axis: 'pending' | 'horizontal' | 'vertical';
+  startPos: number;
+  mode: 'pending' | 'drag' | 'scroll';
+  samples: { t: number; pos: number }[];
 }
 
 /** A face-up card on the home fan that isn't the hero: what the trap is, not a result. */
@@ -55,123 +62,251 @@ function TrickFace({ trap }: { trap: TrapInfo }) {
   );
 }
 
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const raf = (cb: FrameRequestCallback) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(cb) : window.setTimeout(() => cb(now()), 16));
+const caf = (id: number) => (typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame(id) : window.clearTimeout(id));
+
 /**
- * Home hero: the seven trap cards are dealt into a fan, then the front card
- * flips to "Tell!". The fan turns all the way round in either direction: swipe
- * or drag sideways, use the mouse wheel or trackpad, or the arrow keys. Tap a
- * card further round and the fan rolls the short way until it is at the front;
- * tap the front card to turn it over and see what that trap tests. Every card's
- * place, tilt and stacking come from one number, its offset from the front, so
- * the hand reads in number order whichever way it turns.
+ * Home hero: the seven trap cards on an endless ring, No.01 to No.07. The ring
+ * follows a finger or mouse drag directly, carries on with the flick's momentum,
+ * and springs onto the nearest card. The mouse wheel, trackpad and arrow keys
+ * turn it too. Tap a card further round and the ring rolls the short way to
+ * it; tap the front card to turn it over and see what that trap tests. Cards
+ * going round the back fade out behind the hand, so none ever sweeps across
+ * it. Only transforms and opacity change, frame by frame.
  */
 export function Fan() {
   const reduced = useReducedMotion();
   const [fan, dispatch] = useReducer(fanReducer, undefined, initialFanState);
+  const [active, setActive] = useState(FAN_HERO_INDEX);
   const root = useRef<HTMLDivElement | null>(null);
-  const cards = useRef<(HTMLButtonElement | null)[]>([]);
-  const swipe = useRef<Swipe | null>(null);
-  const swallowClick = useRef(false);
-  const keyboard = useRef(false);
+  const slots = useRef<(HTMLDivElement | null)[]>([]);
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const pos = useRef<number>(FAN_HERO_INDEX);
+  const spring = useRef<{ s: Spring; target: number } | null>(null);
+  const frame = useRef<number | null>(null);
+  const gesture = useRef<Gesture | null>(null);
+  const dragged = useRef(false);
+  const detent = useRef(FAN_HERO_INDEX);
+  const focusFront = useRef(false);
+  const upRef = useRef<(i: number) => boolean>(() => false);
+  const reducedRef = useRef(reduced);
+
+  /** Draw every card for the current ring position. */
+  const draw = useCallback(() => {
+    const p = pos.current;
+    for (let i = 0; i < FAN_CARD_COUNT; i += 1) {
+      const el = slots.current[i];
+      if (!el) continue;
+      const o = ringOffset(i, p);
+      const pose = cardPose(o);
+      const lift = pose.lift + (upRef.current(i) && !reducedRef.current ? UP_LIFT : 0);
+      el.style.transform = `rotate(${pose.rot.toFixed(3)}deg) translateY(${lift.toFixed(2)}px) scale(${pose.scale.toFixed(4)})`;
+      el.style.opacity = pose.opacity < 1 ? pose.opacity.toFixed(3) : '';
+      el.style.zIndex = String(pose.z);
+      el.style.visibility = pose.opacity <= 0 ? 'hidden' : '';
+      el.dataset.offset = String(Math.round(o));
+    }
+    const f = frontOf(p);
+    const d = Math.round(p);
+    if (d !== detent.current) {
+      detent.current = d;
+      // A light detent click each time a card passes the front, like a dial.
+      if (gesture.current?.mode === 'drag' || spring.current) tick();
+    }
+    setActive((a) => (a === f ? a : f));
+  }, []);
+
+  const stop = useCallback(() => {
+    if (frame.current !== null) caf(frame.current);
+    frame.current = null;
+    spring.current = null;
+  }, []);
+
+  /** Spring the ring to rest on `target`, starting with `velocity` (cards a second). */
+  const settle = useCallback(
+    (target: number, velocity = 0) => {
+      stop();
+      if (reducedRef.current) {
+        pos.current = target;
+        draw();
+        return;
+      }
+      // Hand the flick's speed to the spring, but no more than it needs to arrive:
+      // a hard flick lands with a soft settle instead of a long wobble.
+      const cap = Math.sqrt(SPRING_K) * Math.abs(target - pos.current) + 1;
+      const v = Math.max(-cap, Math.min(cap, velocity));
+      spring.current = { s: { x: pos.current, v }, target };
+      let last = now();
+      const loop = (t: number) => {
+        const sp = spring.current;
+        if (!sp) return;
+        // Fixed small steps keep the spring stable on slow frames.
+        let dt = Math.min(0.064, Math.max(0, (t - last) / 1000));
+        last = t;
+        while (dt > 0) {
+          const h = Math.min(dt, 1 / 120);
+          sp.s = springStep(sp.s, sp.target, h);
+          dt -= h;
+        }
+        if (springDone(sp.s, sp.target)) {
+          pos.current = sp.target;
+          spring.current = null;
+          frame.current = null;
+          draw();
+          return;
+        }
+        pos.current = sp.s.x;
+        draw();
+        frame.current = raf(loop);
+      };
+      frame.current = raf(loop);
+    },
+    [draw, stop],
+  );
+
+  const turn = useCallback(
+    (step: number) => {
+      const base = spring.current ? spring.current.target : Math.round(pos.current);
+      settle(base + step, spring.current?.s.v ?? 0);
+    },
+    [settle],
+  );
+
+  // Draw before paint, and again whenever a card turns over.
+  useLayoutEffect(() => {
+    reducedRef.current = reduced;
+    upRef.current = (i: number) => fanCardIsUp(fan, i, reduced);
+    draw();
+  }, [draw, fan, reduced]);
+  useEffect(() => stop, [stop]);
 
   // After the deal, the front card turns over on its own, unless the visitor got there first.
   useEffect(() => {
     if (reduced) return;
-    const t = window.setTimeout(() => dispatch({ type: 'hero-dealt' }), FAN.length * DEAL_STAGGER + DEAL_MS + 140);
+    const t = window.setTimeout(() => dispatch({ type: 'hero-dealt' }), HAND.length * DEAL_STAGGER + DEAL_MS + 140);
     return () => window.clearTimeout(t);
   }, [reduced]);
 
   // Keyboard turns keep focus on the card that came to the front.
   useEffect(() => {
-    if (!keyboard.current) return;
-    keyboard.current = false;
-    cards.current[fan.active]?.focus();
-  }, [fan.active]);
+    if (!focusFront.current) return;
+    focusFront.current = false;
+    buttons.current[active]?.focus();
+  }, [active]);
 
-  // Mouse wheel and trackpad: one card per gesture, whichever axis it scrolls on.
+  // Mouse wheel and trackpad, on whichever axis they scroll.
   useEffect(() => {
     const el = root.current;
     if (!el) return;
-    let total = 0;
-    let locked = false;
-    let lockedAt = 0;
     let quiet: number | null = null;
     const onWheel = (e: WheelEvent) => {
-      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      if (!delta) return;
+      const raw = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!raw) return;
       e.preventDefault();
+      const delta = e.deltaMode === 1 ? raw * 40 : e.deltaMode === 2 ? raw * 400 : raw;
       if (quiet !== null) window.clearTimeout(quiet);
-      quiet = window.setTimeout(() => {
-        locked = false;
-        total = 0;
+      if (e.deltaMode !== 0 || (Math.abs(raw) >= WHEEL_NOTCH && Number.isInteger(raw))) {
+        // A mouse wheel notch: one card.
         quiet = null;
+        turn(delta > 0 ? 1 : -1);
+        return;
+      }
+      // A trackpad: follow the fingers, then snap.
+      stop();
+      pos.current += delta / WHEEL_TRACKPAD_PX;
+      draw();
+      quiet = window.setTimeout(() => {
+        quiet = null;
+        settle(Math.round(pos.current));
       }, WHEEL_QUIET_MS);
-      const now = Date.now();
-      if (locked && now - lockedAt < WHEEL_REPEAT_MS) return;
-      locked = false;
-      total += delta;
-      if (Math.abs(total) < WHEEL_THRESHOLD) return;
-      dispatch({ type: 'rotate', step: total > 0 ? 1 : -1 });
-      total = 0;
-      locked = true;
-      lockedAt = now;
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       el.removeEventListener('wheel', onWheel);
       if (quiet !== null) window.clearTimeout(quiet);
     };
-  }, []);
+  }, [draw, settle, stop, turn]);
+
+  function pxPerCard() {
+    const w = slots.current[0]?.offsetWidth || 118;
+    return Math.max(60, w * 0.8);
+  }
 
   function onPointerDown(e: PointerEvent<HTMLDivElement>) {
-    if (e.button !== 0) return;
-    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp, axis: 'pending' };
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragged.current = false;
+    // Catch a spinning ring where it is, like a real one.
+    const sp = spring.current;
+    const caught = sp !== null && (Math.abs(sp.s.v) > 0.6 || Math.abs(sp.s.x - sp.target) > 0.15);
+    stop();
+    if (caught) dragged.current = true;
+    gesture.current = { id: e.pointerId, x: e.clientX, y: e.clientY, startPos: pos.current, mode: 'pending', samples: [{ t: now(), pos: pos.current }] };
   }
 
   function onPointerMove(e: PointerEvent<HTMLDivElement>) {
-    const s = swipe.current;
-    if (!s || s.id !== e.pointerId || s.axis !== 'pending') return;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    if (Math.hypot(dx, dy) < DRAG_SLOP) return;
-    s.axis = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
-    // Keep following a sideways mouse drag that leaves the fan.
-    if (s.axis === 'horizontal') e.currentTarget.setPointerCapture?.(e.pointerId);
+    const g = gesture.current;
+    if (!g || g.id !== e.pointerId || g.mode === 'scroll') return;
+    const dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    if (g.mode === 'pending') {
+      if (Math.hypot(dx, dy) < DRAG_SLOP) return;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        g.mode = 'scroll';
+        return;
+      }
+      g.mode = 'drag';
+      dragged.current = true;
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* the pointer may already be gone */
+      }
+    }
+    pos.current = dragToPos(g.startPos, dx, pxPerCard());
+    const t = now();
+    g.samples.push({ t, pos: pos.current });
+    while (g.samples.length > 2 && t - g.samples[0]!.t > 100) g.samples.shift();
+    draw();
   }
 
-  function onPointerEnd(e: PointerEvent<HTMLDivElement>) {
-    const s = swipe.current;
-    if (!s || s.id !== e.pointerId) return;
-    swipe.current = null;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    if (s.axis === 'pending') return;
-    // Any real movement ends in a click that isn't a tap; let it pass without selecting.
-    if (e.type === 'pointerup') {
-      swallowClick.current = true;
-      window.setTimeout(() => (swallowClick.current = false), 400);
+  function release(e: PointerEvent<HTMLDivElement>, cancelled: boolean) {
+    const g = gesture.current;
+    if (!g || g.id !== e.pointerId) return;
+    gesture.current = null;
+    if (g.mode !== 'drag') {
+      // A ring caught mid-spin and let go: rest on the nearest card.
+      if (dragged.current || cancelled) settle(Math.round(pos.current));
+      return;
     }
-    if (e.type !== 'pointerup' || s.axis !== 'horizontal' || Math.abs(dx) <= Math.abs(dy)) return;
-    const step = swipeSteps(dx, e.timeStamp - s.t);
-    if (step) dispatch({ type: 'rotate', step });
+    const first = g.samples[0]!;
+    const last = g.samples[g.samples.length - 1]!;
+    const span = (now() - first.t) / 1000;
+    const velocity = cancelled || span <= 0 || now() - last.t > 80 ? 0 : (last.pos - first.pos) / span;
+    settle(flingTarget(pos.current, velocity, g.startPos), velocity);
   }
 
   function onClick(i: number) {
-    if (swallowClick.current) {
-      swallowClick.current = false;
+    if (dragged.current) {
+      dragged.current = false;
       return;
     }
-    dispatch({ type: 'select', index: i, reduced });
+    if (i === frontOf(spring.current ? spring.current.target : pos.current)) {
+      dispatch({ type: 'flip', index: i, reduced });
+      return;
+    }
+    settle(shortestTarget(spring.current ? spring.current.target : pos.current, i));
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (!step) return;
     e.preventDefault();
-    keyboard.current = true;
-    dispatch({ type: 'rotate', step });
+    focusFront.current = true;
+    turn(step);
   }
 
-  const front = getTrap(FAN[fan.active]!.id);
+  const front = HAND[active]!;
 
   return (
     <div
@@ -181,39 +316,35 @@ export function Fan() {
       aria-label="The seven trap cards. Swipe, scroll or use the arrow keys to turn the fan. Press the front card to flip it."
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerEnd}
-      onPointerCancel={onPointerEnd}
-      onLostPointerCapture={onPointerEnd}
+      onPointerUp={(e) => release(e, false)}
+      onPointerCancel={(e) => release(e, true)}
+      // A card's seal image must never start a native image drag (it cancels the turn).
+      onDragStart={(e) => e.preventDefault()}
     >
-      {FAN.map((c, i) => {
-        const trap = getTrap(c.id);
+      {HAND.map((trap, i) => {
+        const hero = i === FAN_HERO_INDEX;
         const faceUp = fanCardIsUp(fan, i, reduced);
-        const offset = fanOffset(i, fan.active);
-        const atFront = offset === 0;
+        const atFront = i === active;
         return (
           <div
-            key={c.id}
+            key={trap.id}
+            ref={(el) => {
+              slots.current[i] = el;
+            }}
             className={`fan-card${faceUp ? ' is-up' : ''}${atFront ? ' is-front' : ''}`}
-            data-offset={offset}
-            style={
-              {
-                '--rot': `${offset * SPREAD}deg`,
-                '--lift': `${atFront ? FRONT_LIFT : 0}px`,
-                '--i': i,
-                zIndex: fanZ(offset),
-              } as CSSProperties
-            }
+            data-no={trap.no}
+            style={{ '--i': i } as CSSProperties}
           >
             <button
               ref={(el) => {
-                cards.current[i] = el;
+                buttons.current[i] = el;
               }}
               type="button"
               className={`tcard${faceUp ? ' is-flipped' : ''}`}
               tabIndex={atFront ? 0 : -1}
               aria-label={
                 faceUp
-                  ? `${trap.name}: ${c.hero ? 'Tell! It fired.' : trap.trick}`
+                  ? `${trap.name}: ${hero ? 'Tell! It fired.' : trap.trick}`
                   : `${trap.name}, face down${atFront ? '' : '. Press to bring it to the front.'}`
               }
               onClick={() => onClick(i)}
@@ -221,7 +352,7 @@ export function Fan() {
             >
               <div className="tcard-inner" aria-hidden="true">
                 <CardBack trap={trap} label="" />
-                {c.hero ? <CardFront trap={trap} state="fired" evidence={'canary hit \u00B7 word \u2713'} /> : <TrickFace trap={trap} />}
+                {hero ? <CardFront trap={trap} state="fired" evidence={'canary hit \u00B7 word \u2713'} /> : <TrickFace trap={trap} />}
               </div>
             </button>
           </div>

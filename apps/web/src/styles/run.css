@@ -89,13 +89,13 @@
   transform-origin: 50% 86%;
   animation: waiting-sway 2.8s ease-in-out infinite alternate;
 }
-.run-hand.is-open .hand > :nth-child(1) .tcard.is-waiting { animation-delay: 0s; }
-.run-hand.is-open .hand > :nth-child(2) .tcard.is-waiting { animation-delay: 0.18s; }
-.run-hand.is-open .hand > :nth-child(3) .tcard.is-waiting { animation-delay: 0.36s; }
-.run-hand.is-open .hand > :nth-child(4) .tcard.is-waiting { animation-delay: 0.54s; }
-.run-hand.is-open .hand > :nth-child(5) .tcard.is-waiting { animation-delay: 0.72s; }
-.run-hand.is-open .hand > :nth-child(6) .tcard.is-waiting { animation-delay: 0.9s; }
-.run-hand.is-open .hand > :nth-child(7) .tcard.is-waiting { animation-delay: 1.08s; }
+.run-hand.is-open .hand > .tcard.is-waiting:nth-child(1) { animation-delay: 0s; }
+.run-hand.is-open .hand > .tcard.is-waiting:nth-child(2) { animation-delay: 0.18s; }
+.run-hand.is-open .hand > .tcard.is-waiting:nth-child(3) { animation-delay: 0.36s; }
+.run-hand.is-open .hand > .tcard.is-waiting:nth-child(4) { animation-delay: 0.54s; }
+.run-hand.is-open .hand > .tcard.is-waiting:nth-child(5) { animation-delay: 0.72s; }
+.run-hand.is-open .hand > .tcard.is-waiting:nth-child(6) { animation-delay: 0.9s; }
+.run-hand.is-open .hand > .tcard.is-waiting:nth-child(7) { animation-delay: 1.08s; }
 @keyframes waiting-sway {
   from {
     transform: rotate(-1.2deg);

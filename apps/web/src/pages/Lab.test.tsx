@@ -25,8 +25,8 @@ describe('Lab', () => {
   it('starts a live test and shows the copyable task', async () => {
     api.createRun.mockResolvedValue({ id: ID, label: 'R-BBBB', task, expiresAt: Date.now() + 86_400_000 });
     renderLab();
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Put your agent');
-    fireEvent.click(screen.getByRole('button', { name: /Start a live test/ }));
+    expect((await screen.findByRole('heading', { level: 1 })).textContent).toContain('Put your agent');
+    fireEvent.click(await screen.findByRole('button', { name: /Start a live test/ }));
     expect(await screen.findByText('Your run is ready')).toBeTruthy();
     expect(screen.getByText('R-BBBB')).toBeTruthy();
     expect(screen.getByText(/5 more links/)).toBeTruthy();
@@ -43,7 +43,7 @@ describe('Lab', () => {
     cleanup();
     localStorage.setItem('tell.lastRun', JSON.stringify({ id: ID, label: 'R-BBBB', task, expiresAt: Date.now() - 1 }));
     renderLab();
-    expect(screen.getByRole('button', { name: /Start a live test/ })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Start a live test/ })).toBeTruthy();
   });
 
   it.each(['finished', 'expired'] as const)('does not show a server-%s cached run as ready', async (status) => {
@@ -59,14 +59,14 @@ describe('Lab', () => {
     const { ApiError } = await import('../lib/api');
     api.createRun.mockRejectedValue(new ApiError('not-configured', 'Live tests aren\u2019t switched on yet.', 503));
     renderLab();
-    fireEvent.click(screen.getByRole('button', { name: /Start a live test/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Start a live test/ }));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toContain('switched on');
   });
 
   it('opens the prompt drill tab; without Firebase settings it says so and cannot run', async () => {
     renderLab();
-    fireEvent.click(screen.getByRole('tab', { name: 'Prompt drill' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Prompt drill' }));
     expect(screen.getByRole('tab', { name: 'Prompt drill' }).getAttribute('aria-selected')).toBe('true');
     fireEvent.change(await screen.findByLabelText(/system prompt/), { target: { value: 'You are ShopBot, a helpful shopping assistant.' } });
     expect(screen.getByText(/AI isn\u2019t connected/)).toBeTruthy();

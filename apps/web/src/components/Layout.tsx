@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { Footer } from './Footer';
 import { Dateline, NavBar } from './NavBar';
@@ -20,7 +20,9 @@ export function Layout() {
       <NavBar tone={table ? 'dark' : 'paper'} />
       {table ? null : <Dateline />}
       <main id="main" tabIndex={-1}>
-        <Outlet />
+        <Suspense fallback={<p className="small muted stub">Loading…</p>}>
+          <Outlet />
+        </Suspense>
       </main>
       <Footer tone={table ? 'dark' : 'paper'} />
     </div>

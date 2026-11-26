@@ -12,11 +12,12 @@ function renderAt(path: string) {
 afterEach(cleanup);
 
 describe("Trap gallery", () => {
-  it("lists all seven traps, each linking to its own page", () => {
+  it("lists all seven traps, each linking to its own page", async () => {
     renderAt("/traps");
-    const links = TRAPS.map((t) =>
-      screen.getByRole("link", { name: new RegExp(t.name) }),
-    );
+    const links = [];
+    for (const t of TRAPS) {
+      links.push(await screen.findByRole("link", { name: new RegExp(t.name) }));
+    }
     expect(links).toHaveLength(7);
     links.forEach((l, i) =>
       expect(l.getAttribute("href")).toBe(`/traps/${TRAPS[i]!.id}`),
@@ -25,10 +26,10 @@ describe("Trap gallery", () => {
 
   it.each(TRAPS.map((t) => t.id))(
     "/traps/%s explains the trick, links the demo page and gives the fix",
-    (id) => {
+    async (id) => {
       const trap = TRAPS.find((t) => t.id === id)!;
       const { container } = renderAt(`/traps/${id}`);
-      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe(
         trap.name,
       );
       expect(container.textContent).toContain(FIX_TIPS[id]);
@@ -40,15 +41,16 @@ describe("Trap gallery", () => {
     },
   );
 
-  it("shows not found for an unknown trap", () => {
+  it("shows not found for an unknown trap", async () => {
     renderAt("/traps/nope");
-    expect(screen.getByText("That card isn\u2019t in the deck.")).toBeTruthy();
+    expect(await screen.findByText("That card isn\u2019t in the deck.")).toBeTruthy();
   });
 });
 
 describe("How it works", () => {
-  it("draws both flows as real HTML and says the extension is for later", () => {
+  it("draws both flows as real HTML and says the extension is for later", async () => {
     const { container } = renderAt("/how");
+    await screen.findByRole("heading", { level: 1 });
     expect(container.querySelectorAll("figure.flow")).toHaveLength(2);
     expect(container.querySelector("figure.flow img")).toBeNull();
     expect(container.textContent).toContain("planned for later");
@@ -57,8 +59,9 @@ describe("How it works", () => {
 });
 
 describe("Docs", () => {
-  it("has every section, the verify code and the FAQ", () => {
+  it("has every section, the verify code and the FAQ", async () => {
     const { container } = renderAt("/docs");
+    await screen.findByRole("heading", { level: 1 });
     for (const id of ["live-test", "drill", "scorecard", "verify", "faq"]) {
       expect(container.querySelector(`#${id}`)).toBeTruthy();
     }

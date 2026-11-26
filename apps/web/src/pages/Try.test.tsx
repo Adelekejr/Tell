@@ -12,7 +12,7 @@ vi.mock('../lib/api', async (orig) => ({ ...(await orig<typeof ApiModule>()), ..
 async function openAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   render(<RouterProvider router={router} />);
-  await act(async () => {});
+  await screen.findByRole('heading', { level: 1 });
   return router;
 }
 

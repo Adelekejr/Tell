@@ -152,9 +152,9 @@ flowchart LR
     T -->|hidden line asks it to visit| C["Canary /c/run/n?w=word<br>(Vercel)"]
     T -->|read logged| F[(Firestore)]
     C -->|hit logged| F
-    F --> D{Code decides:<br>fired / held / suspicious}
+    F --> D{Code decides:<br>fired / no canary / suspicious / reported}
     D --> R[Live run page]
-    D --> S["Signed scorecard<br>Ed25519, tell-card-v2"]
+    D --> S["Signed scorecard<br>Ed25519, tell-card-v3"]
     S --> V["/verify in any browser<br>/keys.json"]
     S -->|witnessed only| B[Board]
 ```
@@ -248,14 +248,7 @@ In production the API uses Firestore through the Admin SDK (`FIREBASE_SERVICE_AC
 pnpm -r typecheck && pnpm lint && pnpm -r test && pnpm -r build
 ```
 
-CI (frozen-lockfile install, typecheck, lint, all tests, builds and a gitleaks secret scan, configured by [`.gitleaks.toml`](.gitleaks.toml); pinned actions, read-only permissions) is in [`docs/ci-workflow.yml`](docs/ci-workflow.yml). It is **not active** until it lives at `.github/workflows/ci.yml`: GitHub only lets a token with the `workflow` scope create files under `.github/workflows/`, and the tooling used to push this repo doesn't have it. To switch it on from a phone:
-
-1. Open the repo on github.com and sign in.
-2. Tap **Add file → Create new file**.
-3. Name it `.github/workflows/ci.yml` (typing the slashes makes the folders).
-4. Paste the contents of [`docs/ci-workflow.yml`](docs/ci-workflow.yml).
-5. Tap **Commit changes**, commit straight to `main`.
-6. Open the **Actions** tab and check the first run goes green.
+CI is active at [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Every push and pull request runs a frozen-lockfile install, typecheck, lint, all tests, builds and a gitleaks secret scan (configured by [`.gitleaks.toml`](.gitleaks.toml)), with pinned actions and read-only permissions.
 
 **On-device AI** needs Chrome 139+ on a desktop (Windows 10/11, macOS 13+, Linux or Chromebook Plus), 22 GB of free disk, and a GPU with more than 4 GB of memory or 16 GB of RAM with 4+ cores. Open `/device` to check. Everything else works in any modern browser, on any phone.
 

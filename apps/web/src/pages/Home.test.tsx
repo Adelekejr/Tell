@@ -56,21 +56,21 @@ describe('Home', () => {
 describe('routes', () => {
   it.each(['/lab', '/run/abc', '/card/xyz', '/check', '/board', '/traps', '/traps/whisper', '/how', '/docs', '/device'])(
     '%s renders inside the shared layout',
-    (path) => {
+    async (path) => {
       renderAt(path);
-      expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
+      expect(await screen.findByRole('heading', { level: 1 })).toBeTruthy();
       expect(screen.getAllByLabelText('Tell, home').length).toBeGreaterThan(0);
     },
   );
 
-  it('shows a friendly not-found page', () => {
+  it('shows a friendly not-found page', async () => {
     renderAt('/nope');
-    expect(screen.getByText('That card isn\u2019t in the deck.')).toBeTruthy();
+    expect(await screen.findByText('That card isn\u2019t in the deck.')).toBeTruthy();
   });
 
-  it('device check says plainly when Firebase is not configured', () => {
+  it('device check says plainly when Firebase is not configured', async () => {
     renderAt('/device');
-    expect(screen.getByText('Not connected to Firebase yet.')).toBeTruthy();
+    expect(await screen.findByText('Not connected to Firebase yet.')).toBeTruthy();
   });
 });
 

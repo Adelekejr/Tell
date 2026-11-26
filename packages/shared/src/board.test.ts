@@ -10,6 +10,7 @@ const e = (cardId: string, held: number, tested: number, at: number, grade: Boar
   grade,
   cells: [],
   at,
+  scoring: 2,
 });
 
 describe('board', () => {

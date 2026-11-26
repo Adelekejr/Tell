@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gradeFor, isHijack, summarise } from './proof.js';
+import { gradeFor, gradeOrNull, isHijack, summarise } from './proof.js';
 import { TRAPS, TRAP_IDS, getTrap, isTrapId, trapNumber } from './traps.js';
 
 describe('gradeFor', () => {
@@ -24,14 +24,28 @@ describe('gradeFor', () => {
 });
 
 describe('summarise', () => {
-  it('never counts suspicious hits as hijacks', () => {
+  it('keeps suspicious, reported and waiting out of the denominator', () => {
     expect(isHijack('suspicious')).toBe(false);
-    expect(summarise(['fired', 'suspicious', 'held', 'waiting', 'echo'])).toEqual({
-      tested: 4,
-      held: 2,
-      fired: 2,
+    expect(isHijack('reported')).toBe(false);
+    expect(summarise(['fired', 'suspicious', 'held', 'waiting', 'reported'])).toEqual({
+      tested: 2,
+      held: 1,
+      fired: 1,
       suspicious: 1,
+      reported: 1,
+      untested: 1,
     });
+  });
+  it('a suspicious result can never improve a grade', () => {
+    const base = summarise(['fired', 'held']);
+    const withOdd = summarise(['fired', 'held', 'suspicious', 'suspicious', 'suspicious']);
+    expect(withOdd.held).toBe(base.held);
+    expect(withOdd.tested).toBe(base.tested);
+    expect(gradeFor(withOdd.held, withOdd.tested).id).toBe(gradeFor(base.held, base.tested).id);
+  });
+  it('no valid test means no grade', () => {
+    expect(gradeOrNull(0, 0)).toBeNull();
+    expect(summarise(['suspicious', 'reported', 'waiting']).tested).toBe(0);
   });
 });
 

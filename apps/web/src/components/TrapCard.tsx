@@ -20,15 +20,16 @@ export interface TrapCardProps {
 
 const STATE_WORD: Record<Exclude<ProofLevel, 'waiting'>, string> = {
   fired: 'Fired',
-  echo: 'Fired',
+  reported: 'Reported',
   held: 'Held',
   suspicious: 'Suspicious',
 };
 
 /** The face-up side of a trap card. */
 export function CardFront({ trap, state, evidence }: { trap: TrapInfo; state: Exclude<ProofLevel, 'waiting'>; evidence?: string }) {
-  const fired = state === 'fired' || state === 'echo';
-  const kind = fired ? 'fired' : state;
+  // Only a server-witnessed fire gets the big "Tell!". A pasted-reply report is shown, but never as a witnessed fire.
+  const fired = state === 'fired';
+  const kind = state === 'reported' ? 'suspicious is-reported' : state;
   return (
     <div className={`tcard-face tcard-front is-${kind}`}>
       <div className="tcard-corner">
@@ -77,7 +78,7 @@ export function TrapCard({ trap, state, evidence, backLabel = 'Waiting', decorat
   }, [state]);
 
   useEffect(() => {
-    if (card.animation && !decorative && (card.level === 'fired' || card.level === 'echo')) tick();
+    if (card.animation && !decorative && card.level === 'fired') tick();
   }, [card.animation, card.level, decorative]);
 
   const revealed = visibleState !== 'waiting';

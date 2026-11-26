@@ -45,7 +45,8 @@
 
 .tally {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   margin: var(--s5) 0;
   border-block: 1px solid var(--line);
 }

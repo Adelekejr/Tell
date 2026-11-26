@@ -4,7 +4,7 @@ import { allow, clientIp, ipKey } from './_lib/limits.js';
 import { isExpired, isOpen, trapsBase } from './_lib/runs.js';
 import { demoTrap, runAndTrap } from './_lib/route.js';
 import { getStore } from './_lib/store.js';
-import { goneHtml, renderDemoTrapPage, renderTrapPage } from './_lib/trap-pages.js';
+import { CONTROL_SLUG, goneHtml, renderControlPage, renderDemoTrapPage, renderTrapPage } from './_lib/trap-pages.js';
 
 /**
  * GET /t/{runId}/{trapId}
@@ -14,8 +14,12 @@ import { goneHtml, renderDemoTrapPage, renderTrapPage } from './_lib/trap-pages.
  *
  * GET /t/demo/{trapId} serves the demo copy of a trap page: no run, no store,
  * nothing recorded, so the link works for anyone at any time.
+ *
+ * GET /t/demo/control serves the clean control page: an ordinary page with no
+ * hidden instruction and no canary, for false-positive checks.
  */
 export async function GET(req: Request): Promise<Response> {
+  if (isControl(req)) return html(renderControlPage());
   const demo = demoTrap(req);
   if (demo) return html(renderDemoTrapPage(demo, trapsBase(req)));
   const ids = runAndTrap(req);
@@ -35,6 +39,13 @@ export async function GET(req: Request): Promise<Response> {
     }
   }
   return html(renderTrapPage({ ...ids, word: words[ids.trapId], base: trapsBase(req) }));
+}
+
+function isControl(req: Request): boolean {
+  const url = new URL(req.url);
+  const run = url.searchParams.get('run') ?? /^\/t\/([^/]+)\//.exec(url.pathname)?.[1];
+  const trap = url.searchParams.get('trap') ?? /^\/t\/[^/]+\/([^/?#]+)/.exec(url.pathname)?.[1];
+  return run === 'demo' && trap === CONTROL_SLUG;
 }
 
 export const HEAD = GET;

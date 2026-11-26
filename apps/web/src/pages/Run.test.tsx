@@ -23,7 +23,7 @@ const T0 = Date.UTC(2026, 10, 21, 13, 1, 0);
 
 function view(hits: Hit[] = [], reads: Partial<Record<TrapId, number>> = {}, status: RunView['status'] = 'open'): RunView {
   const now = T0 + 120_000;
-  const cards = decideHand(hits, reads, now, status !== 'open');
+  const cards = decideHand(hits, reads, now, status === 'finished' || status === 'expired' ? now : null);
   const links = TRAP_IDS.map((trapId, i) => ({ trapId, url: `http://tell.test/t/${ID}/${i + 1}` }));
   return {
     id: ID,
@@ -111,9 +111,10 @@ describe('Run page', () => {
     await screen.findByText('Cards are dealt.');
     fireEvent.change(screen.getByLabelText(/Paste its reply/), { target: { value: 'the word is jasper123' } });
     fireEvent.click(screen.getByRole('button', { name: /Check the reply/ }));
-    expect(await screen.findByText(/Found The Cipher in the reply\. The card flipped\./)).toBeTruthy();
+    expect(await screen.findByText(/Found The Cipher in the reply\. Marked as reported/)).toBeTruthy();
     expect(api.checkReply).toHaveBeenCalledWith(ID, 'the word is jasper123');
-    expect(screen.getByRole('img', { name: /The Cipher: Fired/ })).toBeTruthy();
+    expect(screen.getByRole('img', { name: /The Cipher: Reported/ })).toBeTruthy();
+    expect(screen.queryByRole('img', { name: /The Cipher: Fired/ })).toBeNull();
   });
 
   it('finishes the run and grades it', async () => {
@@ -173,7 +174,7 @@ describe('run wording', () => {
   });
   it('headlines follow the hand', () => {
     expect(headline(view()).title).toBe('Cards are dealt.');
-    expect(headline(view([{ trapId: 'whisper', at: 1, level: 'strong' }, { trapId: 'cipher', at: 2, level: 'echo' }])).title).toBe('Two tells so far.');
+    expect(headline(view([{ trapId: 'whisper', at: 1, level: 'strong' }, { trapId: 'cipher', at: 2, level: 'echo' }])).title).toBe('One tell so far.'); // a pasted reply is never a witnessed tell
     const clean = view([], Object.fromEntries(TRAP_IDS.map((t) => [t, T0])) as Record<TrapId, number>, 'finished');
     expect(headline(clean)).toEqual({ title: 'Poker Face.', sub: '7 of 7 held.' });
   });

@@ -27,9 +27,10 @@ describe('Try it (/try)', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('See a tell in seconds.');
     const check = screen.getByRole('region', { name: 'Check a page' });
     const links = within(check).getAllByRole('link');
-    expect(links).toHaveLength(8);
+    expect(links).toHaveLength(9);
     expect(links.map((l) => l.getAttribute('href'))).toContain('/check?example=clean');
     expect(within(check).getByText('A clean recipe')).toBeTruthy();
+    expect(within(check).getByText('The clean control page')).toBeTruthy();
     const traps = screen.getByRole('region', { name: 'Demo trap pages' });
     expect(within(traps).getAllByRole('link', { name: 'Check it' }).map((l) => l.getAttribute('href'))).toEqual(
       [1, 2, 3, 4, 5, 6, 7].map((n) => `/check?example=trap-${n}`),
@@ -111,7 +112,7 @@ describe('the sample scorecard', () => {
     await openAt('/v/sample');
     expect(await screen.findByText('Valid sample.')).toBeTruthy();
     expect(screen.getByText(/signed only this made-up sample/)).toBeTruthy();
-    expect(screen.getByText('Sample, made up (shaped like a live test card)')).toBeTruthy();
+    expect(screen.getByText(/^Sample, made up \(shaped like a live test card\)/)).toBeTruthy();
     expect(screen.getByText('Included, and it matches the signed fingerprint.')).toBeTruthy();
   });
 

@@ -88,3 +88,14 @@ describe('focus', () => {
     expect(paragraphs.map((x) => (x === 'gap' ? 'gap' : x[0]?.text))).toEqual(['gap', 'para 9', 'para 10', 'para 11', 'gap']);
   });
 });
+
+describe('false-positive control', () => {
+  it('flags nothing on the clean control page, and flags every demo trap page', async () => {
+    const { CHECK_EXAMPLES, TRAP_EXAMPLES } = await import('./examples');
+    const control = CHECK_EXAMPLES.find((e) => e.id === 'control')!;
+    const v = control.run();
+    expect(v.findings).toEqual([]);
+    expect(v.hiddenLines).toBe(0);
+    for (const t of TRAP_EXAMPLES) expect(t.run().findings.length, t.id).toBeGreaterThan(0);
+  });
+});

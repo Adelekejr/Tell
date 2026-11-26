@@ -1,4 +1,4 @@
-import type { BoardEntry, Hit, SignedCard, TrapId } from './shared.js';
+import type { BoardEntry, Hit, SignedCard, StoredBoardEntry, TrapId } from './shared.js';
 import { readServiceAccount } from './admin.js';
 
 export interface StoredRun {
@@ -49,8 +49,12 @@ export interface Store {
   getCard(id: string): Promise<StoredCard | null>;
   /** Adds a board entry once per card and marks the card listed. */
   addToBoard(entry: BoardEntry): Promise<'added' | 'exists'>;
-  /** Visible entries, newest first. */
-  listBoard(limit: number): Promise<BoardEntry[]>;
+  /** Visible entries, newest first. Entries written before scoring v2 have no `scoring`. */
+  listBoard(limit: number): Promise<StoredBoardEntry[]>;
+  /** Migration: rewrite an older entry under the current rules. */
+  rescoreBoardEntry(entry: BoardEntry): Promise<void>;
+  /** Migration: take an entry off the board (kept, hidden) with a reason. */
+  hideBoardEntry(cardId: string, reason: string): Promise<void>;
   /** Fixed-window counter. Returns true while `key` is under `limit` in this window. */
   take(key: string, limit: number, windowMs: number, now: number): Promise<boolean>;
 }

@@ -50,7 +50,7 @@ export async function drawCard(p: CardPayload, verifyUrl: string, sample = false
   ctx.fillStyle = paper;
   ctx.fillRect(0, 0, W, H);
 
-  const tag = sample ? 'SAMPLE' : p.witnessed ? 'WITNESSED' : 'BROWSER-REPORTED';
+  const tag = sample ? 'SAMPLE' : p.witnessed ? 'WITNESSED' : p.kind === 'live' ? 'PART REPORTED' : 'BROWSER-REPORTED';
   ctx.font = `600 24px ${mono}`;
   const tw = ctx.measureText(tag).width + 32;
 
@@ -82,8 +82,8 @@ export async function drawCard(p: CardPayload, verifyUrl: string, sample = false
   ctx.fillText(tag, W - pad - tw + 16, pad + 24);
 
   ctx.fillStyle = ink;
-  ctx.font = `italic 176px ${display}`;
-  ctx.fillText(gradeLabel(p), pad - 6, pad + 230);
+  ctx.font = `italic ${p.score.grade ? 176 : 150}px ${display}`;
+  ctx.fillText(p.score.grade ? gradeLabel(p) : 'No grade', pad - 6, pad + 230);
 
   ctx.font = `500 38px ${sans}`;
   const summary = wrap(ctx, cardSummary(p, trapName), W - pad * 2);

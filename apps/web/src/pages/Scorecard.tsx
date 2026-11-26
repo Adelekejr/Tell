@@ -2,10 +2,10 @@ import { useReducer, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useParams } from 'react-router';
 import type { CardPayload, SignedCard } from '@tell/shared';
-import { FIX_TIPS, checkAgentName, isSampleCard } from '@tell/shared';
+import { BOARD_REFUSAL, FIX_TIPS, boardEligibility, cardModel, checkAgentName, isSampleCard } from '@tell/shared';
 import { drawCard, toPngBlob } from '../card/image';
 import { slugOf } from '../card/sample';
-import { cardDate, gradeLabel, shortUrl, siteUrl, trapName } from '../card/text';
+import { cardDate, gradeLabel, legacyNote, scoreLine, shortUrl, siteUrl, trapName } from '../card/text';
 import { useVerifiedCard } from '../card/useVerifiedCard';
 import { Button } from '../components/Button';
 import { Input } from '../components/Field';
@@ -36,11 +36,11 @@ function CopyLink({ url }: { url: string }) {
 }
 
 async function share(card: SignedCard, url: string): Promise<'shared' | 'copied' | 'failed'> {
-  const p = card.payload;
+  const p = cardModel(card.payload).current;
   const sample = isSampleCard(card);
   const text = sample
     ? 'A sample Tell scorecard. Check its signature yourself, then test your own agent.'
-    : `${gradeLabel(p)}: ${p.score.held} of ${p.score.tested} traps held. Check the signature yourself.`;
+    : `${gradeLabel(p)}: ${scoreLine(p)}. Check the signature yourself.`;
   try {
     if (navigator.share) {
       const canvas = await drawCard(p, url, sample);
@@ -155,11 +155,14 @@ export function Scorecard() {
 
   const { record, check } = load;
   const card = record.card;
-  const p = card.payload;
+  const model = cardModel(card.payload);
+  const p = model.current;
   const sample = isSampleCard(card);
   const vUrl = siteUrl(verifyPath(slugOf(card)));
-  const fallen = p.traps.filter((t) => t.result === 'fired');
+  const fallen = p.traps.filter((t) => t.result === 'fired' || t.result === 'reported');
   const listed = record.listed || listedNow;
+  const eligibility = boardEligibility(card.payload);
+  const old = legacyNote(model);
 
   return (
     <section className="card-page">
@@ -171,8 +174,13 @@ export function Scorecard() {
           </Notice>
         </div>
       ) : null}
+      {old ? (
+        <div className="card-sample wrap">
+          <Notice>{old}</Notice>
+        </div>
+      ) : null}
       <div className="card-wrap">
-        <ScoreSheet payload={p} kid={card.kid} check={check} />
+        <ScoreSheet payload={p} kid={card.kid} check={check} legacy={Boolean(model.legacy)} />
         <p className="small muted card-date">
           {sample ? 'Sample \u00B7 signed with Tell\u2019s demo key' : `Signed ${cardDate(p.issuedAt)}`}
           {p.run ? ` \u00B7 run ${p.run}` : ''}
@@ -226,10 +234,14 @@ export function Scorecard() {
               Check its signature
             </Button>
           ) : p.kind === 'live' ? (
-            listed ? (
+            listed && eligibility.ok ? (
               <Button to="/board" variant="ghost" size="sm">
                 On the board
               </Button>
+            ) : !eligibility.ok ? (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void saveImage(p, vUrl, sample)}>
+                Save image
+              </button>
             ) : (
               <button type="button" className="btn btn-ghost btn-sm" aria-expanded={boardOpen} onClick={() => setBoardOpen((o) => !o)}>
                 Add to board
@@ -246,12 +258,14 @@ export function Scorecard() {
             {shareNote}
           </p>
         ) : null}
-        {boardOpen && !listed && !sample && p.kind === 'live' ? <BoardForm card={card} onAdded={() => setListedNow(true)} /> : null}
+        {boardOpen && !listed && !sample && eligibility.ok ? <BoardForm card={card} onAdded={() => setListedNow(true)} /> : null}
         <p className="small muted card-note">
           {sample
             ? 'Anyone can check a card the same way. To get a real one, run a live test in the Lab.'
-            : 'Anyone can check this card wasn\u2019t edited. Only live-tested cards can join the board.'}
-          {p.kind === 'live' ? (
+            : !eligibility.ok
+              ? `Anyone can check this card wasn\u2019t edited. ${BOARD_REFUSAL[eligibility.reason]}`
+              : 'Anyone can check this card wasn\u2019t edited. Only live cards with every result witnessed by Tell\u2019s server can join the board.'}
+          {p.kind === 'live' && eligibility.ok ? (
             <>
               {' '}
               <button type="button" className="linkish small" onClick={() => void saveImage(p, vUrl, sample)}>

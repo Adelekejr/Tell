@@ -22,8 +22,9 @@ describe('TrapCard transitions', () => {
     expect(canTransitionTrapCard('fired', 'held')).toBe(false);
     expect(canTransitionTrapCard('held', 'suspicious')).toBe(false);
     expect(canTransitionTrapCard('suspicious', 'held')).toBe(false);
-    expect(canTransitionTrapCard('echo', 'fired')).toBe(true);
-    expect(canTransitionTrapCard('fired', 'echo')).toBe(false);
+    expect(canTransitionTrapCard('reported', 'fired')).toBe(true);
+    expect(canTransitionTrapCard('fired', 'reported')).toBe(false);
+    expect(canTransitionTrapCard('held', 'reported')).toBe(true);
     const fired = { level: 'fired' as const, animation: '' as const };
     expect(trapCardReducer(fired, { type: 'receive', level: 'waiting' })).toBe(fired);
     expect(trapCardReducer(fired, { type: 'receive', level: 'held' })).toBe(fired);

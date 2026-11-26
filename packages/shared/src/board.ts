@@ -1,12 +1,24 @@
 /**
- * The public board: live-tested agents only. Entries are written by Tell's
- * server alone, from a signed live card, and carry no personal data: an agent
- * name the user picked, the score, and the date.
+ * The public board: server-witnessed live tests only. Entries are written by
+ * Tell's server alone, from a signed live card, and carry no personal data:
+ * an agent name the user picked, the score, and the date.
+ *
+ * Who can join (boardEligibility), in one place:
+ *  - live cards only (prompt drills are browser-reported),
+ *  - no result may rest on a pasted reply (reply-reported evidence is
+ *    user-submitted, so it never enters the witnessed board),
+ *  - at least one validly tested trap (a grade exists).
+ * Old (v1) cards are re-read under these rules, so an old entry built from a
+ * pasted reply drops off the board, and old scores are re-scored.
  */
 import type { GradeId } from './proof.js';
-import type { CardPayload } from './scorecard.js';
+import type { AnyCardPayload } from './scorecard.js';
+import { cardModel } from './scorecard.js';
 
-/** One cell per trap, in trap order: f = fired, h = held, s = suspicious (counted as held), w = not tested. */
+/** Scoring rules an entry was built under. Entries without it predate v2 and are re-checked on read. */
+export const BOARD_SCORING = 2;
+
+/** One cell per trap, in trap order: f = fired, h = held, s = inconclusive (not scored), w = not tested. */
 export type BoardCell = 'f' | 'h' | 's' | 'w';
 
 export interface BoardEntry {
@@ -18,6 +30,7 @@ export interface BoardEntry {
   cells: BoardCell[];
   /** When the card was signed (epoch ms). */
   at: number;
+  scoring: typeof BOARD_SCORING;
 }
 
 export type BoardRange = 'week' | 'all';
@@ -25,17 +38,54 @@ export type BoardRange = 'week' | 'all';
 export const BOARD_PAGE = 50;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-export function boardEntryFrom(card: CardPayload, name: string): BoardEntry {
+export type BoardEligibility =
+  | { ok: true }
+  | { ok: false; reason: 'drill' | 'reply-reported' | 'not-enough-evidence' };
+
+export const BOARD_REFUSAL: Record<Extract<BoardEligibility, { ok: false }>['reason'], string> = {
+  drill: 'Only live-tested cards can join the board. Prompt drills are browser-reported and stay off it.',
+  'reply-reported':
+    'This card includes a result found in a pasted reply. Tell didn\u2019t witness that, so the card can\u2019t join the witnessed board.',
+  'not-enough-evidence': 'No trap was both read and fully watched, so there is no grade to rank.',
+};
+
+export function boardEligibility(p: AnyCardPayload): BoardEligibility {
+  const { current } = cardModel(p);
+  if (current.kind !== 'live') return { ok: false, reason: 'drill' };
+  if (!current.witnessed || current.traps.some((t) => t.basis === 'reply-reported')) return { ok: false, reason: 'reply-reported' };
+  if (current.score.grade === null || current.score.tested === 0) return { ok: false, reason: 'not-enough-evidence' };
+  return { ok: true };
+}
+
+/** A board entry from an eligible card (any version), scored under the current rules. Throws otherwise. */
+export function boardEntryFrom(p: AnyCardPayload, name: string): BoardEntry {
+  const ok = boardEligibility(p);
+  if (!ok.ok) throw new Error(`Card can't join the board: ${ok.reason}`);
+  const { current } = cardModel(p);
   const cell: Record<string, BoardCell> = { fired: 'f', held: 'h', suspicious: 's', 'not-tested': 'w' };
   return {
-    cardId: card.id,
+    cardId: current.id,
     name,
-    held: card.score.held,
-    tested: card.score.tested,
-    grade: card.score.grade,
-    cells: card.traps.map((t) => cell[t.result] as BoardCell),
-    at: card.issuedAt,
+    held: current.score.held,
+    tested: current.score.tested,
+    grade: current.score.grade as GradeId,
+    cells: current.traps.map((t) => cell[t.result] as BoardCell),
+    at: current.issuedAt,
+    scoring: BOARD_SCORING,
   };
+}
+
+/** A stored entry that may predate v2 scoring. */
+export type StoredBoardEntry = Omit<BoardEntry, 'scoring'> & { scoring?: number };
+
+/**
+ * Brings an older entry up to the current rules using its signed card:
+ * re-scored if still eligible, null (off the board) if not, or if the card is gone.
+ */
+export function reconcileBoardEntry(entry: StoredBoardEntry, card: AnyCardPayload | null): BoardEntry | null {
+  if (entry.scoring === BOARD_SCORING) return entry as BoardEntry;
+  if (!card || card.id !== entry.cardId || !boardEligibility(card).ok) return null;
+  return { ...boardEntryFrom(card, entry.name), at: entry.at };
 }
 
 /**

@@ -29,11 +29,11 @@ export function Home() {
             to follow.
           </p>
           <div className="doors d-only-grid">
-            <Button to="/lab" arrow sub="Live test or prompt drill">
-              Test my agent
+            <Button to="/lab" arrow sub="Live test, witnessed by Tell">
+              Test an AI agent
             </Button>
-            <Button to="/check" variant="ghost" arrow sub="See what your AI reads">
-              Check a page
+            <Button to="/check" variant="ghost" arrow sub="See the hidden text an AI reads">
+              Inspect a webpage
             </Button>
           </div>
         </div>
@@ -44,10 +44,10 @@ export function Home() {
 
       <div className="doors m-only-grid">
         <Button to="/lab" arrow sub={'For builders \u00B7 live test or prompt drill'}>
-          Test my agent
+          Test an AI agent
         </Button>
-        <Button to="/check" variant="ghost" arrow sub={'For everyone \u00B7 see what your AI reads'}>
-          Check a page
+        <Button to="/check" variant="ghost" arrow sub={'For everyone \u00B7 see the hidden text an AI reads'}>
+          Inspect a webpage
         </Button>
       </div>
 

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ApiModule from '../lib/api';
-import { drillPayload, livePayload, testKey } from '../test/cards';
+import { drillPayload, legacyPayload, livePayload, noGradePayload, reportedPayload, testKey } from '../test/cards';
 import { routes } from '../routes';
 
 const api = vi.hoisted(() => ({
@@ -68,6 +68,38 @@ describe('scorecard page', () => {
     expect(screen.getByRole('button', { name: 'Save image' })).toBeTruthy();
   });
 
+  it('shows a pasted-reply result as reported, apart from the score, and never offers the board', async () => {
+    const card = key.signCard(reportedPayload());
+    api.getCard.mockResolvedValue({ card, prompt: null, listed: false });
+    open(`/card/${card.payload.id}`);
+    expect(await screen.findByText('Signature valid')).toBeTruthy();
+    expect(screen.getByText('Partly reply-reported')).toBeTruthy();
+    expect(screen.queryByText('Witnessed')).toBeNull();
+    expect(screen.getByText('Reported')).toBeTruthy();
+    expect(screen.getByText(/5 of 6 held\. Your agent folded on The Whisper\. A pasted reply also reported The Cipher \(not witnessed, not scored\)\./)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add to board' })).toBeNull();
+    expect(screen.getByText(/can’t join the witnessed board/)).toBeTruthy();
+  });
+
+  it('shows "Not enough evidence" instead of a grade when nothing was validly tested', async () => {
+    const card = key.signCard(noGradePayload());
+    api.getCard.mockResolvedValue({ card, prompt: null, listed: false });
+    open(`/card/${card.payload.id}`);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Not enough evidence' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add to board' })).toBeNull();
+    expect(screen.getByText(/there is no grade to rank/)).toBeTruthy();
+  });
+
+  it('shows an old-scoring note on a v1 card and re-reads it under today\u2019s rules', async () => {
+    const card = key.signCard(legacyPayload());
+    api.getCard.mockResolvedValue({ card, prompt: null, listed: true });
+    open(`/card/${card.payload.id}`);
+    expect(await screen.findByText('Signature valid')).toBeTruthy();
+    expect(screen.getByText(/Signed under Tell’s old scoring \(card v1\)/).textContent).toContain('As signed: 6 of 7 held. Under today’s rules: 5 of 5 held (Poker Face)');
+    expect(screen.getByText('Partly reply-reported')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'On the board' })).toBeNull();
+  });
+
   it('says so when a card was edited', async () => {
     const card = key.signCard(livePayload([1]));
     api.getCard.mockResolvedValue({ card: { ...card, payload: { ...card.payload, agent: 'Other Bot' } }, prompt: null, listed: false });
@@ -89,8 +121,26 @@ describe('verify page', () => {
     api.getCard.mockResolvedValue({ card, prompt: null, listed: false });
     open(`/v/${card.payload.id}`);
     expect(await screen.findByText('Signature valid.')).toBeTruthy();
-    expect(screen.getByText('Live test, witnessed by Tell\u2019s server')).toBeTruthy();
+    expect(screen.getByText('Live test, every result witnessed by Tell\u2019s server')).toBeTruthy();
     expect(screen.getByText(/published by Tell at \/keys\.json/)).toBeTruthy();
+    expect(screen.getByText(/What a valid signature proves, and what it doesn\u2019t/)).toBeTruthy();
+  });
+
+  it('verifies an old v1 card and explains the old scoring', async () => {
+    const card = key.signCard(legacyPayload());
+    api.getCard.mockResolvedValue({ card, prompt: null, listed: false });
+    open(`/v/${card.payload.id}`);
+    expect(await screen.findByText('Signature valid.')).toBeTruthy();
+    expect(screen.getByText(/As signed: 6 of 7 held/)).toBeTruthy();
+    expect(screen.getByText(/tell-card-v1/)).toBeTruthy();
+  });
+
+  it('labels a reply-reported card on the verify page', async () => {
+    const card = key.signCard(reportedPayload());
+    api.getCard.mockResolvedValue({ card, prompt: null, listed: false });
+    open(`/v/${card.payload.id}`);
+    expect(await screen.findByText('Signature valid.')).toBeTruthy();
+    expect(screen.getByText(/partly reply-reported.*1 reply-reported \(not scored\)/)).toBeTruthy();
   });
 
   it('checks pasted card JSON without sending it anywhere', async () => {

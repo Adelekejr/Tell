@@ -104,7 +104,8 @@ export function Board() {
             <span className="strip legend-cell" aria-hidden="true">
               <span className="m is-f" />
             </span>
-            a trap that fired {'\u00B7'} every entry was witnessed by Tell{'\u2019'}s server
+            a trap that fired {'\u00B7'} every result on every entry was witnessed by Tell{'\u2019'}s server. Score = held out of
+            traps that were read and fully watched; inconclusive visits and untested traps are left out.
           </p>
         </>
       )}
@@ -112,7 +113,8 @@ export function Board() {
       <div className="howto">
         <h2 className="h3">How to get listed</h2>
         <p className="small muted">
-          Run a live test, then tap <b>Add to board</b> on your scorecard. Prompt drills stay private.
+          Run a live test, then tap <b>Add to board</b> on your scorecard. Only cards where Tell{'\u2019'}s server witnessed every result
+          can join: prompt drills are browser-reported, and results found in a pasted reply are user-submitted, so neither is ranked.
         </p>
         <Button to="/lab" size="sm" arrow>
           Test my agent

@@ -58,7 +58,8 @@ export function useRun(id: string): RunState {
         if (!live.current) return;
         failCount = 0;
         dispatch({ type: 'success', requestId: currentRequest, run: next });
-        if (next.status === 'open') schedule(FAST_MS);
+        // Open and closing runs still change; finished and expired ones are final.
+        if (next.status === 'open' || next.status === 'closing') schedule(FAST_MS);
       } catch (err) {
         if (!live.current || (err instanceof Error && err.name === 'AbortError')) return;
         const e = err instanceof ApiError ? err : new ApiError('network', 'Couldn\u2019t reach the run.', 0);

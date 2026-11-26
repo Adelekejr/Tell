@@ -3,7 +3,7 @@
  * TELL_DEV_STORE=memory and refused on Vercel or in production builds
  * (see memoryStoreAllowed in store.ts). Nothing here survives a restart.
  */
-import type { BoardEntry, Hit, TrapId } from './shared.js';
+import type { BoardEntry, Hit, StoredBoardEntry, TrapId } from './shared.js';
 import type { Store, StoredCard, StoredRun, Words } from './store.js';
 
 export class MemoryStore implements Store {
@@ -14,7 +14,7 @@ export class MemoryStore implements Store {
   private counters = new Map<string, number>();
   private cards = new Map<string, StoredCard>();
   private runCards = new Map<string, string>();
-  private board = new Map<string, BoardEntry & { hidden: boolean }>();
+  private board = new Map<string, StoredBoardEntry & { hidden: boolean; hiddenReason?: string }>();
 
   async createRun(run: StoredRun, words: Words): Promise<void> {
     this.runs.set(run.id, structuredClone(run));
@@ -39,7 +39,7 @@ export class MemoryStore implements Store {
   async addHit(id: string, hit: Hit, max: number, now: number): Promise<boolean> {
     const run = this.runs.get(id);
     const list = this.hits.get(id);
-    if (!run || !list || run.finishedAt !== null || now >= run.expiresAt || run.hitCount >= max) return false;
+    if (!run || !list || (run.finishedAt !== null && now >= run.finishedAt) || now >= run.expiresAt || run.hitCount >= max) return false;
     list.push({ ...hit });
     run.hitCount += 1;
     return true;
@@ -47,7 +47,7 @@ export class MemoryStore implements Store {
 
   async markRead(id: string, trapId: TrapId, at: number): Promise<void> {
     const run = this.runs.get(id);
-    if (run && run.finishedAt === null && at < run.expiresAt && run.reads[trapId] === undefined) run.reads[trapId] = at;
+    if (run && (run.finishedAt === null || at < run.finishedAt) && at < run.expiresAt && run.reads[trapId] === undefined) run.reads[trapId] = at;
   }
 
   async finish(id: string, at: number): Promise<void> {
@@ -83,12 +83,33 @@ export class MemoryStore implements Store {
     return 'added';
   }
 
-  async listBoard(limit: number): Promise<BoardEntry[]> {
+  async listBoard(limit: number): Promise<StoredBoardEntry[]> {
     return [...this.board.values()]
       .filter((e) => !e.hidden)
       .sort((a, b) => b.at - a.at)
       .slice(0, limit)
-      .map(({ hidden: _hidden, ...e }) => structuredClone(e));
+      .map(({ hidden: _hidden, hiddenReason: _reason, ...e }) => structuredClone(e));
+  }
+
+  async rescoreBoardEntry(entry: BoardEntry): Promise<void> {
+    const old = this.board.get(entry.cardId);
+    if (old) this.board.set(entry.cardId, { ...structuredClone(entry), hidden: old.hidden });
+  }
+
+  async hideBoardEntry(cardId: string, reason: string): Promise<void> {
+    const old = this.board.get(cardId);
+    if (old) this.board.set(cardId, { ...old, hidden: true, hiddenReason: reason });
+  }
+
+  /** Tests only: plant an entry as an older version of Tell would have written it. */
+  seedLegacyBoardEntry(entry: StoredBoardEntry): void {
+    const { scoring: _s, ...rest } = entry;
+    this.board.set(entry.cardId, { ...structuredClone(rest), hidden: false });
+  }
+
+  /** Tests only: plant a card exactly as stored. */
+  seedCard(card: StoredCard): void {
+    this.cards.set(card.card.payload.id, structuredClone(card));
   }
 
   async take(key: string, limit: number, windowMs: number, now: number): Promise<boolean> {

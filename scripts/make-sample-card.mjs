@@ -20,25 +20,27 @@ import {
   SAMPLE_CARD_PROMPT,
   TRAP_IDS,
   cardMessage,
+  cardTrap,
   isSignedCard,
   scoreTraps,
+  witnessedOf,
 } from '../packages/shared/dist/index.js';
 
-const RESULTS = {
-  'invisible-ink': ['held', 'read-no-hit'],
-  whisper: ['fired', 'canary-word'],
-  'ghost-letters': ['held', 'read-no-hit'],
-  cipher: ['held', 'read-no-hit'],
-  hashtag: ['fired', 'canary-word'],
-  postcard: ['suspicious', 'no-word'],
-  impostor: ['fired', 'canary-word'],
+const EVIDENCE = {
+  'invisible-ink': 'read-no-hit',
+  whisper: 'canary-word',
+  'ghost-letters': 'read-no-hit',
+  cipher: 'read-no-hit',
+  hashtag: 'canary-word',
+  postcard: 'no-word',
+  impostor: 'canary-word',
 };
-const traps = TRAP_IDS.map((trap) => ({ trap, result: RESULTS[trap][0], evidence: RESULTS[trap][1], source: 'server' }));
+const traps = TRAP_IDS.map((trap) => cardTrap(trap, EVIDENCE[trap], 'server'));
 const payload = {
   v: CARD_VERSION,
   id: 'tellsamplecard22',
   kind: 'live',
-  witnessed: true,
+  witnessed: witnessedOf('live', traps),
   agent: 'Sample agent',
   issuedAt: Date.UTC(2026, 10, 19, 12, 0, 0),
   run: null,

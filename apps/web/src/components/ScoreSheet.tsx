@@ -2,14 +2,15 @@ import type { CardPayload } from '@tell/shared';
 import { DEMO_KID, cardSummary } from '@tell/shared';
 import { Fragment } from 'react';
 import type { Check } from '../card/useVerifiedCard';
-import { EVIDENCE_TEXT, RESULT_WORD, cardKicker, gradeLabel, trapName } from '../card/text';
+import { BASIS_TAG, EVIDENCE_TEXT, RESULT_WORD, cardKicker, gradeLabel, trapName } from '../card/text';
 import { Badge } from './Badge';
 import { AlertIcon, FiredIcon, HeldIcon, SuspiciousIcon } from './icons';
 
 function Summary({ p }: { p: CardPayload }) {
   const fallen = p.traps.filter((t) => t.result === 'fired').map((t) => trapName(t.trap));
   const head = `${p.score.held} of ${p.score.tested} held.`;
-  if (!fallen.length) return <p className="sheet-summary">{cardSummary(p, trapName)}</p>;
+  const reported = p.traps.filter((t) => t.result === 'reported').map((t) => trapName(t.trap));
+  if (!fallen.length || reported.length || p.score.tested === 0) return <p className="sheet-summary">{cardSummary(p, trapName)}</p>;
   return (
     <p className="sheet-summary">
       {head} Your agent folded on{' '}
@@ -42,8 +43,12 @@ function SigLine({ check }: { check: Check }) {
   );
 }
 
-/** The scorecard sheet from the UI spec: label row, big grade, seven rows, signature footer. */
-export function ScoreSheet({ payload: p, kid, check }: { payload: CardPayload; kid: string; check: Check }) {
+/**
+ * The scorecard sheet from the UI spec: label row, big grade, seven rows,
+ * signature footer. `payload` is the card as today's rules read it (see
+ * cardModel); `legacy` marks a card signed under the old scoring.
+ */
+export function ScoreSheet({ payload: p, kid, check, legacy = false }: { payload: CardPayload; kid: string; check: Check; legacy?: boolean }) {
   return (
     <article className="sheet" aria-label="Scorecard">
       <div className="sheet-head">
@@ -54,8 +59,12 @@ export function ScoreSheet({ payload: p, kid, check }: { payload: CardPayload; k
               <Badge tone="accent">Sample</Badge>
             </span>
           ) : p.witnessed ? (
-            <span title={'Seen by Tell\u2019s server'}>
+            <span title={'Every result was seen by Tell\u2019s server'}>
               <Badge tone="solid">Witnessed</Badge>
+            </span>
+          ) : p.kind === 'live' ? (
+            <span title={'Some results come from a reply you pasted, which Tell didn\u2019t witness'}>
+              <Badge tone="outline">Partly reply-reported</Badge>
             </span>
           ) : (
             <span title={'Reported by the browser that ran the drill'}>
@@ -72,13 +81,18 @@ export function ScoreSheet({ payload: p, kid, check }: { payload: CardPayload; k
             <span className="sheet-n">{String(i + 1).padStart(2, '0')}</span>
             <span className="sheet-name">{trapName(t.trap)}</span>
             <span className="sheet-word">
-              {t.result === 'fired' ? <FiredIcon /> : t.result === 'held' ? <HeldIcon /> : t.result === 'suspicious' ? <SuspiciousIcon /> : null}
+              {t.result === 'fired' ? <FiredIcon /> : t.result === 'held' ? <HeldIcon /> : t.result === 'suspicious' || t.result === 'reported' ? <SuspiciousIcon /> : null}
               {RESULT_WORD[t.result]}
+              {BASIS_TAG[t.basis] && !(p.kind === 'drill' && t.basis === 'browser-reported') ? <span className="sheet-basis mono">{BASIS_TAG[t.basis]}</span> : null}
             </span>
             <span className="sr-only">. {EVIDENCE_TEXT[t.evidence]}.</span>
           </li>
         ))}
       </ol>
+      <p className="sheet-legend small muted">
+        Score counts only {p.kind === 'drill' ? 'browser-reported' : 'witnessed'} Tell! and Held. Odd (inconclusive), Reported (a pasted reply) and Not tested are left out.
+        {legacy ? ' Re-read under today\u2019s rules; this card was signed under the old scoring.' : ''}
+      </p>
       <div className="sheet-sig">
         <span>Ed25519 {'\u00B7'} key {kid}</span>
         <SigLine check={check} />

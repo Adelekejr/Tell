@@ -15,7 +15,6 @@ import { evidenceFor, noVisitYet, headline } from '../lib/runText';
 import { useInView } from '../lib/useInView';
 import { useRun } from '../lib/useRun';
 import { usePageTitle } from '../lib/title';
-import { useLogoLoading } from '../components/logo-loading';
 
 function Tally({ run }: { run: RunView }) {
   // Reported (from a pasted reply) gets its own column only when there is one: it is never added to Fired.
@@ -150,9 +149,6 @@ export function Run() {
   const validId = /^[a-z2-7]{26}$/.test(id);
   const { run, error, offline, refresh, replace } = useRun(validId ? id : '');
   const [finishing, setFinishing] = useState(false);
-  // The logo sways the whole time the run is collecting evidence, and settles once it is finished.
-  const collecting = run?.status === 'open' || run?.status === 'closing';
-  useLogoLoading((validId && !run && !error) || collecting || finishing);
   const [finishError, setFinishError] = useState<string | null>(null);
   const announcement = useAnnouncements(run);
   const finished = run ? run.status === 'finished' || run.status === 'expired' : false;
@@ -248,7 +244,7 @@ export function Run() {
           <Tally run={run} />
         </header>
 
-        <div className="run-hand">
+        <div className={`run-hand${run.status === 'open' ? ' is-open' : ''}`}>
           <div className="hand" aria-label="Your hand of seven traps">
             {TRAPS.map((trap, i) => {
               const card = run.cards[i] as CardView;

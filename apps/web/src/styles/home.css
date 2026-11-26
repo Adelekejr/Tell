@@ -13,7 +13,7 @@
   padding: 0 var(--gutter) var(--s8);
 }
 
-/* The fan: seven face-down cards dealt on load, one flips to Tell! */
+/* The fan: seven face-down cards dealt on load. Tap the front card to turn it over. */
 .fan {
   position: relative;
   height: 236px;

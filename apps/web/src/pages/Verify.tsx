@@ -16,7 +16,6 @@ import { AlertIcon, HeldIcon } from '../components/icons';
 import { cardPath, verifyPath } from '../lib/api';
 import { usePageTitle } from '../lib/title';
 import { initialPasteCheckState, pasteCheckReducer } from './verify-state';
-import { useLogoLoading } from '../components/logo-loading';
 
 const WHY: Record<Exclude<Verdict, { status: 'valid' }>['reason'], string> = {
   malformed: 'This isn\u2019t a Tell card, or some of its fields were changed into something a card can\u2019t hold.',
@@ -122,7 +121,6 @@ function PasteCheck() {
   const [state, dispatch] = useReducer(pasteCheckReducer, initialPasteCheckState);
   const requestId = useRef(0);
   const request = useRef<AbortController | null>(null);
-  useLogoLoading(state.status === 'checking');
   async function submit(e: FormEvent) {
     e.preventDefault();
     const id = ++requestId.current;
@@ -208,7 +206,6 @@ function Explainer() {
 
 function ById({ id }: { id: string }) {
   const load = useVerifiedCard(id);
-  useLogoLoading(load.status === 'loading');
   if (load.status === 'loading') return <Result card={null} check={{ status: 'checking' }} />;
   if (load.status !== 'ready') {
     return <Notice role="alert">{load.status === 'missing' ? 'That card doesn\u2019t exist. Check the link.' : load.message}</Notice>;

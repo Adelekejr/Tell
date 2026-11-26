@@ -13,7 +13,7 @@ const NAV_LINKS = [
   { to: '/how', label: 'How it works' },
 ] as const;
 
-export function NavBar({ tone = 'paper', loading = false }: { tone?: 'paper' | 'dark'; loading?: boolean }) {
+export function NavBar({ tone = 'paper' }: { tone?: 'paper' | 'dark' }) {
   const { pathname } = useLocation();
   // The menu remembers which page it was opened on, so it closes itself on navigation.
   const [openOn, setOpenOn] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export function NavBar({ tone = 'paper', loading = false }: { tone?: 'paper' | '
 
   return (
     <header className="nav">
-      <Logo tone={tone} loading={loading} />
+      <Logo tone={tone} />
       <nav className="nav-links" aria-label="Main">
         {NAV_LINKS.map((l) => (
           <NavLink key={l.to} to={l.to}>

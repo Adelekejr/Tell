@@ -17,43 +17,6 @@
   width: auto;
   height: 26px;
 }
-.logo-mark-t,
-.logo-crack {
-  transform-box: fill-box;
-  transform-origin: center;
-  transition: transform 220ms ease-in-out;
-}
-.logo.is-loading .logo-mark-t {
-  animation: logo-t-dance 0.7s ease-in-out infinite alternate;
-}
-.logo.is-loading .logo-crack {
-  animation: logo-crack-dance 0.7s ease-in-out infinite alternate;
-}
-/* Units are the mark's own: 12 of them is about 5.5px on the 26px lockup. */
-@keyframes logo-t-dance {
-  from {
-    transform: translateX(-12px) rotate(-4deg);
-  }
-  to {
-    transform: translateX(12px) rotate(4deg);
-  }
-}
-@keyframes logo-crack-dance {
-  from {
-    transform: translateX(12px) rotate(4deg);
-  }
-  to {
-    transform: translateX(-12px) rotate(-4deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .logo-mark-t,
-  .logo-crack {
-    animation: none;
-    transition: none;
-  }
-}
-
 /* ---------- Nav bar + dateline ---------- */
 .nav {
   position: relative;

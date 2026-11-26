@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getTrap } from '@tell/shared';
@@ -29,14 +29,20 @@ describe('Home', () => {
     expect(screen.getAllByText('Invisible Ink').length).toBeGreaterThan(0);
   });
 
-  it('flips the raised card to Tell! after the deal', () => {
+  it('keeps every card face down after the deal, and a tap on the front shows the paper inside', () => {
     vi.useFakeTimers();
     renderAt('/');
     const hero = () => screen.getByRole('button', { name: /^The Whisper/ });
-    expect(hero().className).not.toContain('is-flipped');
     act(() => vi.advanceTimersByTime(1500));
+    expect(hero().className).not.toContain('is-flipped');
+    expect(hero().textContent).not.toContain('Tell!');
+    // The face-down side shows the number; the inside is not visible until a tap.
+    expect(hero().getAttribute('aria-label')).toBe('The Whisper, face down');
+    fireEvent.click(hero());
     expect(hero().className).toContain('is-flipped');
-    expect(hero().textContent).toContain('Tell!');
+    expect(hero().textContent).not.toContain('Tell!');
+    expect(hero().getAttribute('aria-label')).toMatch(/^The Whisper: /);
+    expect(hero().className).not.toMatch(/is-fired/);
   });
 
   it('offers the made-up examples as one list, labelled as made up', () => {

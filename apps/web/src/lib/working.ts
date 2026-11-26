@@ -1,7 +1,6 @@
 /**
  * A tiny app-wide "something is working" count. API calls and long tasks add
- * themselves while they run; the site lockups sway only while the count is
- * above zero, and settle still the moment it drops back.
+ * themselves while they run, and drop the count when they settle.
  */
 type Listener = () => void;
 
@@ -25,7 +24,7 @@ export function beginWork(): () => void {
   };
 }
 
-/** Runs `task` as work: the logo sways until it settles, success or failure. */
+/** Runs `task` as work, then settles, success or failure. */
 export async function trackWork<T>(task: () => Promise<T>): Promise<T> {
   const end = beginWork();
   try {

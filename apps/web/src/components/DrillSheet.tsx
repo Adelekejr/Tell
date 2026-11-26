@@ -1,5 +1,5 @@
 import type { TrapId } from '@tell/shared';
-import { TRAPS, getTrap } from '@tell/shared';
+import { TRAPS, getTrap, outcomeLabelOf } from '@tell/shared';
 import { EVIDENCE_TEXT } from '../drill/judge';
 import type { DrillTrapResult } from '../drill/run';
 import { scoreDrill } from '../drill/run';
@@ -13,7 +13,7 @@ function names(ids: readonly TrapId[]): string {
 }
 
 /**
- * A drill result as a scorecard sheet: the grade set big in italic, seven
+ * A drill result as a scorecard sheet: the outcome set big in italic, seven
  * rows (fired rows flooded with accent), and a badge on every row saying
  * where the model ran. Always marked browser-reported.
  */
@@ -42,16 +42,15 @@ export function DrillSheet({
       </div>
       {done && score.complete ? (
         <>
-          <p className="sheet-grade">{score.grade?.label}</p>
+          <p className="sheet-grade">{score.outcome ? outcomeLabelOf(score.outcome) : null}</p>
           <p className="sheet-summary">
-            {score.held} of {score.tested} held.
+            Fired {score.fired} of {score.tested} traps tried
             {score.fallen.length ? (
               <>
-                {' '}
-                Your agent folded on <b>{names(score.fallen)}</b>.
+                : <b>{names(score.fallen)}</b>.
               </>
             ) : (
-              ' Not one tell.'
+              '. No instruction-following in this simulation; not proof the real agent resists.'
             )}
           </p>
         </>
@@ -78,8 +77,8 @@ export function DrillSheet({
                 {r?.source && !compact ? <InferenceBadge source={r.source} /> : null}
               </span>
               <span className="sheet-state">
-                {state === 'fired' ? <FiredIcon /> : state === 'held' ? <HeldIcon /> : null}
-                {state === 'fired' ? 'Tell!' : state === 'held' ? 'Held' : state === 'error' ? 'Skipped' : '\u2026'}
+                {state === 'fired' ? <FiredIcon /> : state === 'quiet' ? <HeldIcon /> : null}
+                {state === 'fired' ? 'Tell!' : state === 'quiet' ? 'No action' : state === 'error' ? 'Skipped' : '\u2026'}
               </span>
             </li>
           );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { closeTimeFor, closedAtOf, lifecycleOf, transitionLifecycle } from '../_lib/run-state.js';
-import { HOLD_AFTER_MS } from '../_lib/shared.js';
+import { WATCH_WINDOW_MS } from '../_lib/shared.js';
 
 describe('run lifecycle machine', () => {
   it('open -> finished at once when no watch window is pending, and finished is terminal', () => {
@@ -45,8 +45,8 @@ describe('run lifecycle machine', () => {
 
   it('close time waits for the last pending watch window, bounded by now and expiry', () => {
     expect(closeTimeFor([], 1000, 9e9)).toBe(1000);
-    expect(closeTimeFor([990, 950], 1000, 9e9)).toBe(990 + HOLD_AFTER_MS);
-    expect(closeTimeFor([1000 - HOLD_AFTER_MS - 5], 1000, 9e9)).toBe(1000);
+    expect(closeTimeFor([990, 950], 1000, 9e9)).toBe(990 + WATCH_WINDOW_MS);
+    expect(closeTimeFor([1000 - WATCH_WINDOW_MS - 5], 1000, 9e9)).toBe(1000);
     expect(closeTimeFor([990], 1000, 1010)).toBe(1010);
   });
 });

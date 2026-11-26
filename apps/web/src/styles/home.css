@@ -91,7 +91,7 @@
     display: block;
   }
 }
-/* The trick face: paper, like a held card, but it reports nothing. */
+/* The trick face: paper, like a no-canary card, but it reports nothing. */
 .tcard-front.is-trick {
   background: var(--paper);
   color: var(--ink);

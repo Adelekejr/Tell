@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { drillPayload, promptHash, readExtras } from '../_lib/cards.js';
 import { loadKeyRing, signPayload, verifySigned } from '../_lib/signing.js';
 import type { BoardEntry, CardTrap, RunView, SignedCard } from '../_lib/shared.js';
-import { HOLD_AFTER_MS, RUN_TTL_MS, SAMPLE_CARD, TRAP_IDS, canonicalJson, cardTrap, isSignedCard, scoreTraps } from '../_lib/shared.js';
+import { WATCH_WINDOW_MS, RUN_TTL_MS, SAMPLE_CARD, TRAP_IDS, canonicalJson, cardTrap, isSignedCard, scoreTraps } from '../_lib/shared.js';
 import { getStore, resetStoreForTests } from '../_lib/store.js';
 import { GET as boardGet, POST as boardPost } from '../board.js';
 import { GET as cardGet } from '../card.js';
@@ -22,7 +22,7 @@ const drillTraps = (fired: number[] = [1]) =>
   TRAP_IDS.map((trapId, i) =>
     fired.includes(i)
       ? { trapId, state: 'fired', evidence: 'opened-link', source: 'cloud' }
-      : { trapId, state: 'held', evidence: null, source: 'on-device' },
+      : { trapId, state: 'quiet', evidence: null, source: 'on-device' },
   );
 
 describe('key ring', () => {
@@ -54,7 +54,7 @@ describe('signing round trip', () => {
 
   it('produces a well-formed card that verifies', () => {
     expect(isSignedCard(card)).toBe(true);
-    expect(card.payload).toMatchObject({ kind: 'drill', witnessed: false, score: { held: 5, tested: 7, grade: 'steady' } });
+    expect(card.payload).toMatchObject({ kind: 'drill', witnessed: false, score: { noCanary: 5, observed: 7, fired: 2, outcome: 'tell' } });
     expect(verifySigned(card, ring)).toBe(true);
   });
 
@@ -150,7 +150,7 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(Date.now());
     const closing = (await (await finishRoute(req(`/api/run/${id}/finish`, { method: 'POST' }))).json()) as RunView;
-    vi.setSystemTime(Date.now() + HOLD_AFTER_MS + 1);
+    vi.setSystemTime(Date.now() + WATCH_WINDOW_MS + 1);
     return closing;
   };
 
@@ -169,9 +169,9 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
     expect(res.status).toBe(201);
     const { card } = (await res.json()) as { card: SignedCard };
     expect(card.payload).toMatchObject({ kind: 'live', witnessed: true, agent: 'ShopBot', run: run.label, promptHash: null });
-    expect(card.payload.traps.map((t) => t.result)).toEqual(['held', 'fired', 'not-tested', 'not-tested', 'not-tested', 'not-tested', 'not-tested']);
-    expect(card.payload.score).toEqual({ held: 1, tested: 2, fired: 1, suspicious: 0, reported: 0, grade: 'twitchy' });
-    expect(card.payload.v).toBe(2);
+    expect(card.payload.traps.map((t) => t.result)).toEqual(['no-canary', 'fired', 'not-tested', 'not-tested', 'not-tested', 'not-tested', 'not-tested']);
+    expect(card.payload.score).toEqual({ observed: 2, fired: 1, noCanary: 1, suspicious: 0, reported: 0, outcome: 'tell' });
+    expect(card.payload.v).toBe(3);
     expect(card.payload.traps.map((t) => (t as CardTrap).basis)).toEqual(['server-witnessed', 'server-witnessed', 'none', 'none', 'none', 'none', 'none']);
     expect(JSON.stringify(card)).not.toContain(run.id);
     // Signing again returns the same card, whatever the browser sends.
@@ -230,10 +230,29 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
     expect(text).not.toContain(secret);
     const body = JSON.parse(text) as { keys: { kid: string; publicKey: string }[] };
     expect(body.keys).toEqual([{ kid: 'k1', alg: 'Ed25519', publicKey: loadKeyRing().active!.publicRaw }]);
+    const contexts = (JSON.parse(text) as { contexts: Record<string, { context: string }> }).contexts;
+    expect(Object.fromEntries(Object.entries(contexts).map(([k, v]) => [k, v.context]))).toEqual({ v1: 'tell-card-v1', v2: 'tell-card-v2', v3: 'tell-card-v3' });
+  });
+
+  it('a live card with fewer than three traps observed cannot join the board', async () => {
+    const run = await playedRun();
+    await finishAndSettle(run.id);
+    const live = ((await (await signRoute(post('/api/sign', { kind: 'live', runId: run.id }))).json()) as { card: SignedCard }).card;
+    const res = await boardPost(post('/api/board', { cardId: live.payload.id, name: 'ShopBot' }));
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe('not-enough-evidence');
+  });
+
+  it('accepts drill input from older pages that still say held', async () => {
+    const old = TRAP_IDS.map((trapId) => ({ trapId, state: 'held', evidence: null, source: 'on-device' }));
+    const res = await signRoute(post('/api/sign', { kind: 'drill', traps: old }));
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as { card: SignedCard }).card.payload.score).toMatchObject({ observed: 7, fired: 0, outcome: 'no-tell' });
   });
 
   it('only live, witnessed, correctly signed cards join the board, once', async () => {
     const run = await playedRun();
+    await trapRoute(req(`/t/${run.id}/3`));
     await finishAndSettle(run.id);
     const live = ((await (await signRoute(post('/api/sign', { kind: 'live', runId: run.id }))).json()) as { card: SignedCard }).card;
     const drill = ((await (await signRoute(post('/api/sign', { kind: 'drill', traps: drillTraps([]) }))).json()) as { card: SignedCard }).card;
@@ -247,9 +266,9 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
 
     const board = (await (await boardGet(req('/api/board?range=week'))).json()) as { entries: BoardEntry[] };
     expect(board.entries).toEqual([
-      { cardId: live.payload.id, name: 'ShopBot', held: 1, tested: 2, grade: 'twitchy', cells: ['h', 'f', 'w', 'w', 'w', 'w', 'w'], at: live.payload.issuedAt, scoring: 2 },
+      { cardId: live.payload.id, name: 'ShopBot', fired: 1, observed: 3, cells: ['q', 'f', 'q', 'w', 'w', 'w', 'w'], at: live.payload.issuedAt, scoring: 3 },
     ]);
-    expect(((await (await boardGet(req('/api/board?poker=1'))).json()) as { entries: BoardEntry[] }).entries).toEqual([]);
+    expect(((await (await boardGet(req('/api/board?tell=1'))).json()) as { entries: BoardEntry[] }).entries).toHaveLength(1);
     const card = (await (await cardGet(req(`/api/card/${live.payload.id}`))).json()) as { listed: boolean };
     expect(card.listed).toBe(true);
   });

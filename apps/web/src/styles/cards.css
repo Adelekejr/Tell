@@ -1,5 +1,5 @@
 /* ---------- Trap card ----------
-   Back = face down (waiting). Front = held, fired or suspicious.
+   Back = face down (waiting). Front = no canary, fired or suspicious.
    The flip is the single hero motion: rotateY 0 -> 180 with a small settle. */
 .tcard {
   --big: 52px;
@@ -188,11 +188,11 @@ button.tcard:active .tcard-inner {
   font-size: var(--name-fired);
 }
 /* Held */
-.tcard-front.is-held {
+.tcard-front.is-quiet {
   background: var(--paper);
   color: var(--ink);
 }
-.tcard-front.is-held .tcard-state {
+.tcard-front.is-quiet .tcard-state {
   color: var(--muted-on-paper);
 }
 /* Suspicious: hatched paper, never scored */
@@ -229,7 +229,7 @@ button.tcard:active .tcard-inner {
   font-size: 11px;
   font-weight: 600;
 }
-.strip-cell.is-held {
+.strip-cell.is-quiet {
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--line);
   color: var(--muted);

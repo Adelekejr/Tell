@@ -14,7 +14,7 @@ export class MemoryStore implements Store {
   private counters = new Map<string, number>();
   private cards = new Map<string, StoredCard>();
   private runCards = new Map<string, string>();
-  private board = new Map<string, StoredBoardEntry & { hidden: boolean; hiddenReason?: string }>();
+  private board = new Map<string, StoredBoardEntry & Record<string, unknown> & { hidden: boolean; hiddenReason?: string }>();
 
   async createRun(run: StoredRun, words: Words): Promise<void> {
     this.runs.set(run.id, structuredClone(run));
@@ -88,7 +88,11 @@ export class MemoryStore implements Store {
       .filter((e) => !e.hidden)
       .sort((a, b) => b.at - a.at)
       .slice(0, limit)
-      .map(({ hidden: _hidden, hiddenReason: _reason, ...e }) => structuredClone(e));
+      .map((e) => {
+        const out: StoredBoardEntry = { cardId: e.cardId, name: e.name, at: e.at };
+        if (typeof e.scoring === 'number') out.scoring = e.scoring;
+        return out;
+      });
   }
 
   async rescoreBoardEntry(entry: BoardEntry): Promise<void> {
@@ -102,7 +106,7 @@ export class MemoryStore implements Store {
   }
 
   /** Tests only: plant an entry as an older version of Tell would have written it. */
-  seedLegacyBoardEntry(entry: StoredBoardEntry): void {
+  seedLegacyBoardEntry(entry: StoredBoardEntry & Record<string, unknown>): void {
     const { scoring: _s, ...rest } = entry;
     this.board.set(entry.cardId, { ...structuredClone(rest), hidden: false });
   }

@@ -2,7 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type * as FirestoreModule from 'firebase-admin/firestore';
 import type { ServiceAccount } from './admin.js';
 import { getAdminApp } from './admin.js';
-import type { BoardCell, BoardEntry, GradeId, Hit, SignedCard, StoredBoardEntry, TrapId } from './shared.js';
+import type { BoardEntry, Hit, SignedCard, StoredBoardEntry, TrapId } from './shared.js';
 import { isTrapId } from './shared.js';
 import type { Store, StoredCard, StoredRun, Words } from './store.js';
 
@@ -155,22 +155,16 @@ export class FirestoreStore implements Store {
     const snap = await this.db.collection('board').where('hidden', '==', false).orderBy('at', 'desc').limit(limit).get();
     return snap.docs.map((doc) => {
       const d = doc.data() as Record<string, unknown>;
-      const entry: StoredBoardEntry = {
-        cardId: doc.id,
-        name: String(d.name ?? ''),
-        held: Number(d.held),
-        tested: Number(d.tested),
-        grade: d.grade as GradeId,
-        cells: String(d.cells ?? '').split('') as BoardCell[],
-        at: Number(d.at),
-      };
+      // Only the id, name and date are read back; everything shown is rebuilt from the signed card.
+      const entry: StoredBoardEntry = { cardId: doc.id, name: String(d.name ?? ''), at: Number(d.at) };
       if (typeof d.scoring === 'number') entry.scoring = d.scoring;
       return entry;
     });
   }
 
   async rescoreBoardEntry(entry: BoardEntry): Promise<void> {
-    await this.db.collection('board').doc(entry.cardId).update({ ...entry, cells: entry.cells.join('') });
+    // Replace the whole document so fields from older scoring versions don't linger.
+    await this.db.collection('board').doc(entry.cardId).set({ ...entry, cells: entry.cells.join(''), hidden: false });
   }
 
   async hideBoardEntry(cardId: string, reason: string): Promise<void> {

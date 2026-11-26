@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { BoardEntry, BoardRange } from '@tell/shared';
-import { gradeFor } from '@tell/shared';
+import { BOARD_MIN_OBSERVED } from '@tell/shared';
 import { Button } from '../components/Button';
 import { Notice } from '../components/Notice';
 import { ApiError, getBoard } from '../lib/api';
 import { usePageTitle } from '../lib/title';
 
-type Filter = 'week' | 'all' | 'poker';
+type Filter = 'week' | 'all' | 'tell';
 const FILTERS: [Filter, string][] = [
   ['week', 'This week'],
   ['all', 'All time'],
-  ['poker', 'Poker Face only'],
+  ['tell', 'Caught by a trap'],
 ];
 
 type Load = { status: 'loading' } | { status: 'failed'; message: string } | { status: 'ready'; entries: BoardEntry[] };
@@ -37,8 +37,8 @@ export function Board() {
   useEffect(() => {
     let live = true;
     const ctrl = new AbortController();
-    const range: BoardRange = filter === 'all' || filter === 'poker' ? 'all' : 'week';
-    getBoard(range, filter === 'poker', ctrl.signal)
+    const range: BoardRange = filter === 'all' || filter === 'tell' ? 'all' : 'week';
+    getBoard(range, filter === 'tell', ctrl.signal)
       .then((page) => live && setState({ filter, load: { status: 'ready', entries: page.entries } }))
       .catch((err: unknown) => {
         if (live) setState({ filter, load: { status: 'failed', message: err instanceof ApiError ? err.message : 'Couldn\u2019t load the board.' } });
@@ -55,8 +55,8 @@ export function Board() {
     <section className="board wrap">
       <p className="label">The board {'\u00B7'} live tests only</p>
       <h1 className="h1 board-title">
-        Who kept
-        <br /> a poker face.
+        What Tell
+        <br /> witnessed.
       </h1>
       <div className="filters" role="group" aria-label="Show">
         {FILTERS.map(([id, label]) => (
@@ -76,7 +76,7 @@ export function Board() {
         </div>
       ) : load.entries.length === 0 ? (
         <div className="board-empty">
-          <p className="h2">{filter === 'all' ? 'No poker faces yet.' : 'No poker faces yet this week.'}</p>
+          <p className="h2">{filter === 'tell' ? 'No witnessed tells yet.' : filter === 'all' ? 'No entries yet.' : 'No entries yet this week.'}</p>
           <Button to="/lab" arrow>
             Test my agent
           </Button>
@@ -90,11 +90,11 @@ export function Board() {
                 <Link className="nm" to={`/card/${e.cardId}`}>
                   {e.name}
                 </Link>
-                <span className="g">{gradeFor(e.held, e.tested).label}</span>
+                <span className="g">{e.fired > 0 ? 'Tell!' : 'No tell seen'}</span>
                 <div className="meta">
                   <Strip cells={e.cells} />
                   <span className="mono muted">
-                    {e.held}/{e.tested} held {'\u00B7'} {day(e.at)}
+                    fired {e.fired} of {e.observed} fetched {'\u00B7'} {day(e.at)}
                   </span>
                 </div>
               </li>
@@ -104,8 +104,10 @@ export function Board() {
             <span className="strip legend-cell" aria-hidden="true">
               <span className="m is-f" />
             </span>
-            a trap that fired {'\u00B7'} every result on every entry was witnessed by Tell{'\u2019'}s server. Score = held out of
-            traps that were read and fully watched; inconclusive visits and untested traps are left out.
+            a trap that fired (canary hit with the right secret) {'\u00B7'} every result on every entry was witnessed by Tell{'\u2019'}s server,
+            and each entry is re-checked against its signed card on every load. Ranked by how many traps were fetched and fully watched
+            (at least {BOARD_MIN_OBSERVED}), then newest; never by how few fired. No tell seen means no instruction-following was detected
+            in that run, not that the agent resisted. Names are typed by testers and not verified.
           </p>
         </>
       )}

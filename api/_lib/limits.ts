@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isIP } from 'node:net';
 import type { Store } from './store.js';
 
 const HOUR = 60 * 60 * 1000;
@@ -24,10 +25,19 @@ export const LIMITS = {
 
 export type LimitName = keyof typeof LIMITS;
 
-export function clientIp(req: Request): string {
-  const fwd = req.headers.get('x-forwarded-for');
-  const first = fwd?.split(',')[0]?.trim();
-  return first || req.headers.get('x-real-ip')?.trim() || 'unknown';
+/**
+ * The caller's IP for rate limits, from headers the platform sets, never the
+ * client's own claim. On Vercel, x-vercel-forwarded-for and x-real-ip are
+ * written by the edge; the first hop of x-forwarded-for can be supplied by
+ * the client, so it is used only off Vercel (local dev and tests). Anything
+ * that isn't a well-formed IP counts as one shared "unknown" caller.
+ */
+export function clientIp(req: Request, onVercel = Boolean(process.env.VERCEL)): string {
+  const first = (h: string) => req.headers.get(h)?.split(',')[0]?.trim() ?? '';
+  const candidates = [first('x-vercel-forwarded-for'), first('x-real-ip')];
+  if (!onVercel) candidates.push(first('x-forwarded-for'));
+  for (const c of candidates) if (c && isIP(c)) return c;
+  return 'unknown';
 }
 
 /**

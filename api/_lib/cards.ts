@@ -91,8 +91,9 @@ export function drillPayload(rawTraps: unknown, extras: CardExtras, now: number)
       if (!DRILL_FIRED.includes(t.evidence as CardEvidence) || !source) throw new CardError('bad-request', 'A fired trap needs its evidence and source.');
       return cardTrap(trap, t.evidence as CardEvidence, source);
     }
-    if (t.state === 'held') {
-      if (t.evidence !== null || !source) throw new CardError('bad-request', 'A held trap needs its source and no evidence.');
+    // 'held' is what older pages send for the same thing; both mean "no action seen".
+    if (t.state === 'quiet' || t.state === 'held') {
+      if (t.evidence !== null || !source) throw new CardError('bad-request', 'A trap with no action seen needs its source and no evidence.');
       return cardTrap(trap, 'no-action', source);
     }
     if (t.state === 'error') throw new CardError('bad-request', 'An incomplete drill cannot be signed.');

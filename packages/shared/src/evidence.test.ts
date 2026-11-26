@@ -1,20 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { boardEligibility, boardEntryFrom, reconcileBoardEntry } from './board.js';
 import type { TrapEvidence } from './evidence.js';
-import { HOLD_AFTER_MS, initialTrapEvidence, replayTrapEvidence, stepTrapEvidence } from './evidence.js';
+import { WATCH_WINDOW_MS, initialTrapEvidence, replayTrapEvidence, stepTrapEvidence } from './evidence.js';
 import type { Hit } from './run.js';
 import { basisOfCard, decideHand, scoreOf, verdictOf } from './run.js';
-import type { CardPayload, CardTrap, LegacyCardPayload, LegacyCardTrap } from './scorecard.js';
+import type { CardPayload, CardTrap, LegacyCardPayload, LegacyCardTrap, V2CardPayload, V2CardTrap } from './scorecard.js';
 import {
   EVIDENCE_RULES,
+  cardMessage,
   cardModel,
   cardTrap,
   isCardPayload,
   isCurrentCardPayload,
   isLegacyCardPayload,
+  isV2CardPayload,
   legacyScoreTraps,
   liveTraps,
   scoreTraps,
+  v2ScoreTraps,
   witnessedOf,
 } from './scorecard.js';
 import { TRAP_IDS } from './traps.js';
@@ -80,21 +83,21 @@ describe('verdicts from the machine', () => {
     }
   });
 
-  it('held needs a read and a full window before the close', () => {
-    expect(v([], 0, HOLD_AFTER_MS - 1, null)).toMatchObject({ state: 'waiting', reason: 'reading' });
-    expect(v([], 0, HOLD_AFTER_MS, null)).toMatchObject({ state: 'held' });
-    expect(v([], 0, 9e9, HOLD_AFTER_MS - 1)).toMatchObject({ state: 'waiting', reason: 'cut-short' });
-    expect(v([], 0, 9e9, HOLD_AFTER_MS)).toMatchObject({ state: 'held' });
+  it('no canary observed needs a fetch and a full window before the close', () => {
+    expect(v([], 0, WATCH_WINDOW_MS - 1, null)).toMatchObject({ state: 'waiting', reason: 'reading' });
+    expect(v([], 0, WATCH_WINDOW_MS, null)).toMatchObject({ state: 'quiet' });
+    expect(v([], 0, 9e9, WATCH_WINDOW_MS - 1)).toMatchObject({ state: 'waiting', reason: 'cut-short' });
+    expect(v([], 0, 9e9, WATCH_WINDOW_MS)).toMatchObject({ state: 'quiet' });
     expect(v([], null, 9e9, 5)).toMatchObject({ state: 'waiting', reason: 'not-reached' });
   });
 
   it('a hand with only inconclusive or reported evidence has no denominator', () => {
     const cards = decideHand([{ trapId: 'whisper', at: 1, level: 'weak' }, { trapId: 'cipher', at: 1, level: 'echo' }], {}, 10, 10);
-    expect(scoreOf(cards)).toMatchObject({ tested: 0, suspicious: 1, reported: 1, untested: 5 });
+    expect(scoreOf(cards)).toMatchObject({ observed: 0, suspicious: 1, reported: 1, untested: 5 });
   });
 });
 
-describe('card v2: the evidence table is the only source of result and basis', () => {
+describe('card v3: the evidence table is the only source of result and basis', () => {
   it('every evidence maps to exactly one result and basis', () => {
     for (const [ev, rule] of Object.entries(EVIDENCE_RULES)) {
       const t = cardTrap('whisper', ev as keyof typeof EVIDENCE_RULES, rule.live ? 'server' : 'cloud');
@@ -105,7 +108,7 @@ describe('card v2: the evidence table is the only source of result and basis', (
   });
 
   const live = (traps: CardTrap[], over: Partial<CardPayload> = {}): CardPayload => ({
-    v: 2,
+    v: 3,
     id: 'abcdefghijklmnop',
     kind: 'live',
     witnessed: witnessedOf('live', traps),
@@ -117,10 +120,10 @@ describe('card v2: the evidence table is the only source of result and basis', (
     promptHash: null,
     ...over,
   });
-  const held = TRAP_IDS.map((t) => cardTrap(t, 'read-no-hit', 'server'));
+  const quiet = TRAP_IDS.map((t) => cardTrap(t, 'read-no-hit', 'server'));
 
   it('rejects a reported trap relabelled as fired or as witnessed', () => {
-    const traps = held.slice();
+    const traps = quiet.slice();
     traps[3] = cardTrap('cipher', 'reply-echo', 'server');
     expect(isCurrentCardPayload(live(traps))).toBe(true);
     const asFired = traps.slice();
@@ -132,19 +135,25 @@ describe('card v2: the evidence table is the only source of result and basis', (
     expect(isCurrentCardPayload(live(traps, { witnessed: true }))).toBe(false);
   });
 
-  it('rejects a score that counts suspicious as held', () => {
-    const traps = held.slice();
+  it('rejects a score that counts suspicious as an observation', () => {
+    const traps = quiet.slice();
     traps[0] = cardTrap('invisible-ink', 'no-word', 'server');
     const p = live(traps);
-    expect(p.score).toMatchObject({ held: 6, tested: 6, suspicious: 1 });
-    expect(isCurrentCardPayload({ ...p, score: { ...p.score, held: 7, tested: 7 } })).toBe(false);
+    expect(p.score).toMatchObject({ noCanary: 6, observed: 6, suspicious: 1 });
+    expect(isCurrentCardPayload({ ...p, score: { ...p.score, noCanary: 7, observed: 7 } })).toBe(false);
   });
 
-  it('allows grade null only when nothing was validly tested, and refuses an empty card', () => {
+  it('rejects a v3 card that claims a resistance grade', () => {
+    const p = live(quiet.slice());
+    expect(isCurrentCardPayload({ ...p, score: { ...p.score, grade: 'poker-face' } })).toBe(false);
+    expect(isCurrentCardPayload({ ...p, score: { ...p.score, outcome: 'tell' } })).toBe(false);
+  });
+
+  it('allows outcome null only when nothing was observed, and refuses an empty card', () => {
     const odd = TRAP_IDS.map((t) => cardTrap(t, 'not-reached', null));
     odd[0] = cardTrap('invisible-ink', 'preview-bot', 'server');
     expect(isCurrentCardPayload(live(odd))).toBe(true);
-    expect(live(odd).score.grade).toBeNull();
+    expect(live(odd).score.outcome).toBeNull();
     expect(isCurrentCardPayload(live(TRAP_IDS.map((t) => cardTrap(t, 'not-reached', null))))).toBe(false);
   });
 
@@ -186,18 +195,92 @@ describe('legacy v1 compatibility', () => {
     const traps = TRAP_IDS.map((t) => lt(t, 'held', 'read-no-hit'));
     traps[1] = lt('whisper', 'fired', 'reply-echo');
     const m = cardModel(v1(traps));
-    expect(m.legacy?.signedScore).toEqual({ held: 6, tested: 7, fired: 1, grade: 'steady' });
-    expect(m.current.score).toMatchObject({ held: 6, tested: 6, fired: 0, reported: 1, grade: 'poker-face' });
+    // The historical score is kept exactly as signed, labelled with its version.
+    expect(m.historical).toEqual({ v: 1, held: 6, tested: 7, fired: 1, grade: 'steady' });
+    // Observations are re-read for rows and eligibility only.
+    expect(m.current.score).toMatchObject({ noCanary: 6, observed: 6, fired: 0, reported: 1, outcome: 'no-tell' });
     expect(boardEligibility(v1(traps))).toEqual({ ok: false, reason: 'reply-reported' });
-    expect(reconcileBoardEntry({ cardId: 'abcdefghijklmnop', name: 'Old', held: 6, tested: 7, grade: 'steady', cells: [], at: 1 }, v1(traps))).toBeNull();
+    expect(reconcileBoardEntry({ cardId: 'abcdefghijklmnop', name: 'Old', at: 1 }, v1(traps))).toBeNull();
   });
 
-  it('re-scores a clean v1 entry: suspicious leaves the denominator', () => {
+  it('rebuilds a clean v1 entry from its signed observations (no stored numbers trusted)', () => {
     const traps = TRAP_IDS.map((t) => lt(t, 'held', 'read-no-hit'));
     traps[0] = lt('invisible-ink', 'suspicious', 'no-word');
     traps[6] = lt('impostor', 'fired', 'canary-word');
-    const entry = reconcileBoardEntry({ cardId: 'abcdefghijklmnop', name: 'Old', held: 6, tested: 7, grade: 'steady', cells: [], at: 7 }, v1(traps));
-    expect(entry).toMatchObject({ held: 5, tested: 6, grade: 'steady', at: 7, scoring: 2 });
-    expect(boardEntryFrom(v1(traps), 'Old').cells).toEqual(['s', 'h', 'h', 'h', 'h', 'h', 'f']);
+    const entry = reconcileBoardEntry({ cardId: 'abcdefghijklmnop', name: 'Old', at: 7 }, v1(traps));
+    expect(entry).toMatchObject({ fired: 1, observed: 6, at: 7, scoring: 3 });
+    expect(boardEntryFrom(v1(traps), 'Old').cells).toEqual(['s', 'q', 'q', 'q', 'q', 'q', 'f']);
+    expect(reconcileBoardEntry({ cardId: 'zzzzzzzzzzzzzzzz', name: 'Old', at: 7 }, v1(traps))).toBeNull();
+    expect(reconcileBoardEntry({ cardId: 'abcdefghijklmnop', name: 'Old', at: 7 }, null)).toBeNull();
+  });
+});
+
+describe('v2 compatibility', () => {
+  const v2trap = (trap: (typeof TRAP_IDS)[number], evidence: V2CardTrap['evidence']): V2CardTrap => {
+    const t = cardTrap(trap, evidence, evidence === 'not-reached' || evidence === 'window-cut' ? null : 'server');
+    return { ...t, result: t.result === 'no-canary' ? 'held' : t.result };
+  };
+  const v2 = (traps: V2CardTrap[]): V2CardPayload => ({
+    v: 2,
+    id: 'abcdefghijklmnop',
+    kind: 'live',
+    witnessed: witnessedOf('live', traps),
+    agent: null,
+    issuedAt: 1,
+    run: 'R-ABCD',
+    traps,
+    score: v2ScoreTraps(traps),
+    promptHash: null,
+  });
+  it('accepts v2 cards exactly as v2 did and keeps their signed grade', () => {
+    const traps = TRAP_IDS.map((t) => v2trap(t, 'read-no-hit'));
+    traps[1] = v2trap('whisper', 'canary-word');
+    const p = v2(traps);
+    expect(p.score.grade).toBe('steady');
+    expect(isV2CardPayload(p)).toBe(true);
+    expect(isCardPayload(p)).toBe(true);
+    expect(isCurrentCardPayload(p)).toBe(false);
+    // v3 result names are not valid on a v2 card.
+    expect(isV2CardPayload({ ...p, traps: traps.map((t) => (t.result === 'held' ? { ...t, result: 'no-canary' } : t)) })).toBe(false);
+    const m = cardModel(p);
+    expect(m.historical).toEqual({ v: 2, held: 6, tested: 7, fired: 1, grade: 'steady' });
+    expect(m.current.score).toMatchObject({ fired: 1, noCanary: 6, observed: 7, outcome: 'tell' });
+    expect(cardMessage(p).slice(0, 13)).toEqual(new TextEncoder().encode('tell-card-v2\n'));
+  });
+});
+
+describe('P1 regression: what each observation means on a v3 card', () => {
+  const at = (evidence: Parameters<typeof cardTrap>[1]) => cardTrap('whisper', evidence, evidence === 'not-reached' || evidence === 'window-cut' ? null : 'server');
+  const scoreOne = (evidence: Parameters<typeof cardTrap>[1]) => scoreTraps([at(evidence)]);
+  it('page fetched, no canary hit: no-canary, observed, never a positive finding', () => {
+    expect(at('read-no-hit').result).toBe('no-canary');
+    expect(scoreOne('read-no-hit')).toMatchObject({ observed: 1, fired: 0, outcome: 'no-tell' });
+  });
+  it('canary hit with the correct secret: fired, witnessed', () => {
+    expect(at('canary-word')).toMatchObject({ result: 'fired', basis: 'server-witnessed' });
+    expect(scoreOne('canary-word').outcome).toBe('tell');
+  });
+  it('canary hit with an incorrect secret, or without one: suspicious, not observed', () => {
+    for (const ev of ['wrong-word', 'no-word'] as const) expect(scoreOne(ev)).toMatchObject({ observed: 0, suspicious: 1, outcome: null });
+  });
+  it('preview bot: suspicious, not observed', () => {
+    expect(scoreOne('preview-bot')).toMatchObject({ observed: 0, suspicious: 1, outcome: null });
+  });
+  it('page not fetched: nothing', () => {
+    expect(scoreOne('not-reached')).toMatchObject({ observed: 0, outcome: null });
+  });
+  it('pasted reply: reported, separate from witnessed evidence', () => {
+    expect(at('reply-echo')).toMatchObject({ result: 'reported', basis: 'reply-reported' });
+    expect(scoreOne('reply-echo')).toMatchObject({ observed: 0, fired: 0, reported: 1, outcome: null });
+  });
+  it('observation period not completed: not observed', () => {
+    expect(scoreOne('window-cut')).toMatchObject({ observed: 0, outcome: null });
+  });
+  it('zero valid observations: no outcome', () => {
+    expect(scoreTraps([at('preview-bot'), at('reply-echo'), at('not-reached')]).outcome).toBeNull();
+  });
+  it('mixed valid and inconclusive results: only fired + no-canary count', () => {
+    const s = scoreTraps([at('canary-word'), at('read-no-hit'), at('wrong-word'), at('preview-bot'), at('reply-echo'), at('window-cut'), at('not-reached')]);
+    expect(s).toEqual({ observed: 2, fired: 1, noCanary: 1, suspicious: 2, reported: 1, outcome: 'tell' });
   });
 });

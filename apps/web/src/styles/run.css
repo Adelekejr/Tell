@@ -79,7 +79,7 @@
   }
 }
 
-.run-hand .tcard-front.is-held,
+.run-hand .tcard-front.is-quiet,
 .run-hand .tcard-front.is-suspicious {
   box-shadow: none;
 }

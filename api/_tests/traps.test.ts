@@ -5,7 +5,7 @@ import { ipKey } from '../_lib/limits.js';
 import { checkReply, normaliseReply } from '../_lib/reply.js';
 import { classifyCanary, recordCanary } from '../_lib/runs.js';
 import type { RunView } from '../_lib/shared.js';
-import { HOLD_AFTER_MS, RUN_TTL_MS, TRAP_IDS, decideCard, scoreOf, tallyOf } from '../_lib/shared.js';
+import { WATCH_WINDOW_MS, RUN_TTL_MS, TRAP_IDS, decideCard, scoreOf, tallyOf } from '../_lib/shared.js';
 import { getStore, memoryStoreAllowed, resetStoreForTests } from '../_lib/store.js';
 import { canaryUrl, renderTrapPage, toTagLetters } from '../_lib/trap-pages.js';
 import { GET as canary } from '../canary.js';
@@ -68,12 +68,12 @@ describe('cards (decideCard)', () => {
   it('is face down until something happens', () => {
     expect(decideCard({ ...base, hits: [], readAt: null })).toMatchObject({ state: 'waiting', reason: 'not-reached' });
   });
-  it('stays face down while the agent is still reading, then holds', () => {
+  it('stays face down while the agent is still reading, then shows no canary', () => {
     expect(decideCard({ ...base, hits: [], readAt: base.now - 1000 })).toMatchObject({ state: 'waiting', reason: 'reading' });
-    expect(decideCard({ ...base, hits: [], readAt: base.now - HOLD_AFTER_MS })).toMatchObject({ state: 'held', reason: 'ignored' });
-    // Closing before the minute is up does not hand out a Held: the trap was cut short (not tested).
+    expect(decideCard({ ...base, hits: [], readAt: base.now - WATCH_WINDOW_MS })).toMatchObject({ state: 'quiet', reason: 'no-canary' });
+    // Closing before the minute is up does not hand out a No canary: the trap was cut short (not tested).
     expect(decideCard({ ...base, closedAt: base.now, hits: [], readAt: base.now - 1000 })).toMatchObject({ state: 'waiting', reason: 'cut-short' });
-    expect(decideCard({ ...base, closedAt: base.now, hits: [], readAt: base.now - HOLD_AFTER_MS })).toMatchObject({ state: 'held' });
+    expect(decideCard({ ...base, closedAt: base.now, hits: [], readAt: base.now - WATCH_WINDOW_MS })).toMatchObject({ state: 'quiet' });
   });
   it('never holds a trap that was not read', () => {
     expect(decideCard({ ...base, closedAt: base.now, hits: [], readAt: null }).state).toBe('waiting');
@@ -97,8 +97,8 @@ describe('cards (decideCard)', () => {
     const cards = TRAP_IDS.map((trapId, i) =>
       decideCard({ trapId, now: 1e9, closedAt: 1e9, readAt: 1, hits: i === 0 ? [{ trapId, at: 2, level: 'weak' }] : i === 1 ? [{ trapId, at: 2, level: 'strong' }] : [] }),
     );
-    expect(tallyOf(cards)).toEqual({ fired: 1, reported: 0, held: 5, suspicious: 1, waiting: 0 });
-    expect(scoreOf(cards)).toMatchObject({ tested: 6, held: 5, fired: 1, suspicious: 1 });
+    expect(tallyOf(cards)).toEqual({ fired: 1, reported: 0, quiet: 5, suspicious: 1, waiting: 0 });
+    expect(scoreOf(cards)).toMatchObject({ observed: 6, quiet: 5, fired: 1, suspicious: 1 });
   });
 });
 
@@ -277,11 +277,11 @@ describe('endpoints, end to end on the dev store', () => {
     await canary(req(`/c/${run.id}/6?w=anything`, { ua: 'Slackbot-LinkExpanding 1.0' }));
     const s = await state(run.id);
     expect(s.cards.map((c) => c.state)).toEqual(['waiting', 'fired', 'suspicious', 'waiting', 'waiting', 'suspicious', 'waiting']);
-    expect(s.tally).toEqual({ fired: 1, reported: 0, held: 0, suspicious: 2, waiting: 4 });
+    expect(s.tally).toEqual({ fired: 1, reported: 0, quiet: 0, suspicious: 2, waiting: 4 });
     expect(s.events[0]).toMatchObject({ trapId: 'postcard', kind: 'bot', client: 'Slackbot' });
   });
 
-  it('Finish waits out the watch window (closing), then a read trap holds', async () => {
+  it('Finish waits out the watch window (closing), then a fetched trap shows no canary', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(1_800_000_000_000);
     const run = await newRun();
@@ -291,16 +291,16 @@ describe('endpoints, end to end on the dev store', () => {
     vi.setSystemTime(1_800_000_000_000 + 10_000);
     const closing = (await (await finishRoute(req(`/api/run/${run.id}/finish`, { method: 'POST' }))).json()) as RunView;
     expect(closing.status).toBe('closing');
-    expect(closing.finishedAt).toBe(1_800_000_000_000 + HOLD_AFTER_MS);
+    expect(closing.finishedAt).toBe(1_800_000_000_000 + WATCH_WINDOW_MS);
     expect(closing.cards[0]).toMatchObject({ state: 'waiting', reason: 'reading' }); // not Held yet
-    vi.setSystemTime(1_800_000_000_000 + HOLD_AFTER_MS);
+    vi.setSystemTime(1_800_000_000_000 + WATCH_WINDOW_MS);
     const done = await state(run.id);
     expect(done.status).toBe('finished');
-    expect(done.cards[0]?.state).toBe('held');
+    expect(done.cards[0]?.state).toBe('quiet');
     expect(done.cards[3]?.state).toBe('waiting');
     // Finished runs ignore late hits.
     await canary(req(`/c/${run.id}/1?w=${await wordFor(run.id, 1)}`));
-    expect((await state(run.id)).cards[0]?.state).toBe('held');
+    expect((await state(run.id)).cards[0]?.state).toBe('quiet');
   });
 
   it('evidence that lands while closing still counts', async () => {
@@ -311,7 +311,7 @@ describe('endpoints, end to end on the dev store', () => {
     await finishRoute(req(`/api/run/${run.id}/finish`, { method: 'POST' }));
     vi.setSystemTime(1_800_000_000_000 + 30_000);
     await canary(req(`/c/${run.id}/2?w=${w}`));
-    vi.setSystemTime(1_800_000_000_000 + HOLD_AFTER_MS + 1);
+    vi.setSystemTime(1_800_000_000_000 + WATCH_WINDOW_MS + 1);
     const done = await state(run.id);
     expect(done.status).toBe('finished');
     expect(done.cards[1]).toMatchObject({ state: 'fired', reason: 'word' });
@@ -339,7 +339,7 @@ describe('endpoints, end to end on the dev store', () => {
     expect(res.status).toBe(200); // same answer either way
     const s = await state(run.id);
     expect(s.status).toBe('expired');
-    expect(s.cards[6]?.state).toBe('held'); // read in time, never fired
+    expect(s.cards[6]?.state).toBe('quiet'); // read in time, never fired
   });
 
   it('caps hits per run at 50', async () => {

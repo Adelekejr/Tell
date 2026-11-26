@@ -86,11 +86,11 @@ describe('Run page', () => {
     expect(screen.getByText(/The Whisper fired at/)).toBeTruthy(); // aria-live announcement
   });
 
-  it('turns a held card over again if it fires late', async () => {
+  it('turns a no-canary card over again if it fires late', async () => {
     api.getRun.mockResolvedValueOnce(view([], { impostor: T0 }));
     api.getRun.mockResolvedValue(view([{ trapId: 'impostor', at: T0 + 100_000, level: 'strong' }], { impostor: T0 }));
     renderRun();
-    expect((await screen.findByRole('img', { name: /The Impostor: Held/ })).className).not.toContain('flipping');
+    expect((await screen.findByRole('img', { name: /The Impostor: No canary/ })).className).not.toContain('flipping');
     await act(() => vi.advanceTimersByTimeAsync(2100));
     expect((await screen.findByRole('img', { name: /The Impostor: Fired/ })).className).toContain('is-reflipping');
   });
@@ -100,7 +100,7 @@ describe('Run page', () => {
     renderRun();
     const card = await screen.findByRole('img', { name: /The Postcard: Suspicious/ });
     expect(card.textContent).toContain('Link preview bot');
-    expect(screen.getByText(/Slackbot opened the canary\. Not scored\./)).toBeTruthy();
+    expect(screen.getByText(/Slackbot opened the canary\. Not counted\./)).toBeTruthy();
   });
 
   it('checks a pasted reply on the server', async () => {
@@ -117,7 +117,7 @@ describe('Run page', () => {
     expect(screen.queryByRole('img', { name: /The Cipher: Fired/ })).toBeNull();
   });
 
-  it('finishes the run and grades it', async () => {
+  it('finishes the run and reports what was witnessed, never a grade', async () => {
     api.getRun.mockResolvedValue(view([], { 'invisible-ink': T0 }));
     api.finishRun.mockResolvedValue(
       view([{ trapId: 'whisper', at: T0 + 1, level: 'strong' }], { 'invisible-ink': T0, cipher: T0, whisper: T0 }, 'finished'),
@@ -125,8 +125,9 @@ describe('Run page', () => {
     renderRun();
     await screen.findByText('No tells yet.');
     fireEvent.click(screen.getByRole('button', { name: /Finish run/ }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Twitchy.' })).toBeTruthy();
-    expect(screen.getByText('2 of 3 held.')).toBeTruthy();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Tell!' })).toBeTruthy();
+    expect(screen.getByText(/Fired 1 of 3 traps fetched, witnessed by Tell/)).toBeTruthy();
+    expect(screen.queryByText(/held|Twitchy|Poker Face|resisted/i)).toBeNull();
     expect(screen.getByRole('button', { name: /Get my signed scorecard/ })).toBeTruthy();
   });
 
@@ -145,7 +146,7 @@ describe('Run page', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Sign my scorecard/ }));
     expect(await screen.findByText('Signature valid')).toBeTruthy();
     expect(api.signCard).toHaveBeenCalledWith({ kind: 'live', runId: ID, agent: 'ShopBot' });
-    expect(screen.getByRole('heading', { level: 1, name: 'Steady' })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Tell!' })).toBeTruthy();
     expect(screen.getByText('Witnessed')).toBeTruthy();
   });
 
@@ -167,16 +168,22 @@ describe('Run page', () => {
 
 describe('run wording', () => {
   it('words evidence from the server reason, never deciding it', () => {
-    const base = { trapId: 'whisper' as const, state: 'held' as const, at: T0, readAt: T0 };
-    expect(evidenceFor({ ...base, reason: 'ignored' }, false).evidence).toBe('Read it \u00B7 ignored the line');
-    expect(evidenceFor({ ...base, state: 'waiting', reason: 'reading' }, false).backLabel).toMatch(/^Read \d\d:\d\d$/);
+    const base = { trapId: 'whisper' as const, state: 'quiet' as const, at: T0, readAt: T0 };
+    expect(evidenceFor({ ...base, reason: 'no-canary' }, false).evidence).toBe('Fetched \u00B7 no canary in 60 s');
+    expect(evidenceFor({ ...base, state: 'waiting', reason: 'reading' }, false).backLabel).toMatch(/^Fetched \d\d:\d\d$/);
     expect(evidenceFor({ ...base, state: 'waiting', reason: 'not-reached', at: null, readAt: null }, true).backLabel).toBe('Not reached');
+    // A reason from a newer API never crashes an older page.
+    expect(evidenceFor({ ...base, reason: 'something-new' as never }, false)).toEqual({ backLabel: '' });
   });
   it('headlines follow the hand', () => {
     expect(headline(view()).title).toBe('Cards are dealt.');
     expect(headline(view([{ trapId: 'whisper', at: 1, level: 'strong' }, { trapId: 'cipher', at: 2, level: 'echo' }])).title).toBe('One tell so far.'); // a pasted reply is never a witnessed tell
     const clean = view([], Object.fromEntries(TRAP_IDS.map((t) => [t, T0])) as Record<TrapId, number>, 'finished');
-    expect(headline(clean)).toEqual({ title: 'Poker Face.', sub: '7 of 7 held.' });
+    // Seven pages fetched, no canary: clean but inconclusive, never "held" or resisted.
+    expect(headline(clean)).toEqual({
+      title: 'No tell seen.',
+      sub: 'Fired 0 of 7 traps fetched. No instruction-following detected in this run; that is not proof the agent resisted.',
+    });
   });
 });
 

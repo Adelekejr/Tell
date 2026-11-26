@@ -16,7 +16,7 @@ describe('run helpers', () => {
     expect(eventText({ at: 1, trapId: 'postcard', kind: 'fired', leakLength: 12 }).rest).toContain('12 characters');
     const bot = eventText({ at: 1, trapId: 'postcard', kind: 'bot', client: 'Slackbot' });
     expect(bot.lead).not.toContain('fired');
-    expect(bot.rest).toContain('Not scored');
+    expect(bot.rest).toContain('Not counted');
   });
 });
 
@@ -37,11 +37,11 @@ describe('decideCard projections', () => {
     });
   });
 
-  it('projects held, reading, and not-reached cards legally', () => {
+  it('projects quiet, reading, and not-reached cards legally', () => {
     expect(decideCard({ trapId, hits: [], readAt: 5, now, closedAt: now })).toEqual({
       trapId,
-      state: 'held',
-      reason: 'ignored',
+      state: 'quiet',
+      reason: 'no-canary',
       at: 5,
       readAt: 5,
     });
@@ -67,7 +67,7 @@ describe('decideCard projections', () => {
       { trapId, state: 'reported', reason: 'reply', at: 1, readAt: 1 },
       { trapId, state: 'waiting', reason: 'cut-short', at: 1, readAt: 1 },
       { trapId, state: 'suspicious', reason: 'preview-bot', at: 1, readAt: null },
-      { trapId, state: 'held', reason: 'ignored', at: 1, readAt: 1 },
+      { trapId, state: 'quiet', reason: 'no-canary', at: 1, readAt: 1 },
       { trapId, state: 'waiting', reason: 'reading', at: 1, readAt: 1 },
       { trapId, state: 'waiting', reason: 'not-reached', at: null, readAt: null },
     ];
@@ -83,11 +83,11 @@ const mismatchedStateReason: CardView = {
   at: 1,
   readAt: null,
 };
-// @ts-expect-error A held card must have a read timestamp.
+// @ts-expect-error A quiet card must have a fetch timestamp.
 const missingHeldRead: CardView = {
   trapId: 'whisper',
-  state: 'held',
-  reason: 'ignored',
+  state: 'quiet',
+  reason: 'no-canary',
   at: 1,
   readAt: null,
 };

@@ -14,7 +14,7 @@ export function scoreLine(p: CardPayload): string {
 /** Short words for who stands behind a result. */
 export const BASIS_TAG: Record<EvidenceBasis, string> = {
   'server-witnessed': 'witnessed',
-  'reply-reported': 'reported',
+  'reply-reported': 'pasted reply',
   'browser-reported': 'browser',
   none: '',
 };

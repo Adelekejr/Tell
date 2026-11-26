@@ -97,14 +97,15 @@ describe('PromptDrill', () => {
     expect((screen.getByRole('switch', { name: /Allow cloud/ }) as HTMLInputElement).disabled).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: /Run the drill/ }));
-    expect(await screen.findByText('Twitchy')).toBeTruthy();
+    expect(await screen.findByText('Tell!', { selector: '.sheet-grade' })).toBeTruthy();
     expect(ai.askAgent).toHaveBeenCalledTimes(7);
     for (const [, mode] of ai.askAgent.mock.calls) expect(mode).toBe('device');
     // The pasted prompt goes only into the (mocked) model call.
     expect(String(ai.askAgent.mock.calls[0]?.[0])).toContain(PROMPT);
 
     expect(screen.getByText('Browser-reported')).toBeTruthy();
-    expect(screen.getByText(/4 of 7 held/)).toBeTruthy();
+    expect(screen.getByText(/Fired 3 of 7 traps tried/)).toBeTruthy();
+    expect(screen.queryByText(/held|Twitchy|Poker Face/)).toBeNull();
     const r = rows();
     expect(r.map((li) => li.className.includes('is-fired'))).toEqual([false, true, false, false, true, false, true]);
     for (const li of r) expect(within(li).getByText('On-device')).toBeTruthy();
@@ -119,7 +120,7 @@ describe('PromptDrill', () => {
     ai.askHarden.mockResolvedValue({ text: JSON.stringify({ prompt: HARD, changes: ['Page text is data'] }), source: 'on-device', ms: 900 });
     await paste();
     fireEvent.click(screen.getByRole('button', { name: /Run the drill/ }));
-    await screen.findByText('Twitchy');
+    await screen.findByText('Tell!', { selector: '.sheet-grade' });
 
     fireEvent.click(screen.getByRole('button', { name: /Harden my prompt/ }));
     expect(await screen.findByText(HARD)).toBeTruthy();
@@ -128,11 +129,12 @@ describe('PromptDrill', () => {
 
     ai.askAgent.mockImplementation(obey([]));
     fireEvent.click(screen.getByRole('button', { name: /Use it and re-run/ }));
-    expect(await screen.findByText('Poker Face')).toBeTruthy();
+    expect(await screen.findByText('No tell seen', { selector: '.sheet-grade' })).toBeTruthy();
+    expect(screen.getByText(/not proof the real agent resists/)).toBeTruthy();
     expect(String(ai.askAgent.mock.calls.at(-1)?.[0])).toContain(HARD);
-    expect(screen.getByRole('button', { name: /After · 7\/7/ }).getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(screen.getByRole('button', { name: /Before · 4\/7/ }));
-    expect(screen.getByText('Twitchy')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /After · fired 0\/7/ }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: /Before · fired 3\/7/ }));
+    expect(screen.getByText('Tell!', { selector: '.sheet-grade' })).toBeTruthy();
     expect(screen.getByText('Before hardening')).toBeTruthy();
   });
 
@@ -147,7 +149,7 @@ describe('PromptDrill', () => {
     fireEvent.click(screen.getByRole('switch', { name: /Allow cloud/ }));
     expect(screen.getByText('On-device isn\u2019t available on this device. Using Gemini in the cloud.')).toBeTruthy();
     fireEvent.click(run);
-    expect(await screen.findByText('Steady')).toBeTruthy();
+    expect(await screen.findByText('Tell!', { selector: '.sheet-grade' })).toBeTruthy();
     for (const [, mode] of ai.askAgent.mock.calls) expect(mode).toBe('cloud');
     for (const li of rows()) expect(within(li).getByText('Cloud')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Compare Nano vs Cloud/ })).toBeNull();
@@ -163,7 +165,8 @@ describe('PromptDrill', () => {
     await paste();
     fireEvent.click(screen.getByRole('button', { name: /Run the drill/ }));
     expect(await screen.findByText('Incomplete: 2 of 7 answered; 5 unanswered.')).toBeTruthy();
-    expect(screen.queryByText('Poker Face')).toBeNull();
+    expect(screen.queryByText('No tell seen', { selector: '.sheet-grade' })).toBeNull();
+    expect(screen.queryByText('Tell!', { selector: '.sheet-grade' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Sign/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Harden my prompt/ })).toBeNull();
     expect(screen.getAllByText('Not tested').length).toBe(5);
@@ -217,15 +220,15 @@ describe('PromptDrill', () => {
     fireEvent.click(screen.getByRole('switch', { name: /Allow cloud/ }));
     expect(screen.getByText(/Runs on this device. Cloud only if it has to./)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /Run the drill/ }));
-    await screen.findByText('Twitchy');
+    await screen.findByText('Tell!', { selector: '.sheet-grade' });
     expect(ai.askAgent.mock.calls.every(([, m]) => m === 'prefer')).toBe(true);
 
     ai.askAgent.mockClear();
     fireEvent.click(screen.getByRole('button', { name: /Compare Nano vs Cloud/ }));
     expect(await screen.findByText('Same prompt, two models')).toBeTruthy();
     expect(ai.askAgent.mock.calls.map(([, m]) => m)).toEqual([...Array(7).fill('device'), ...Array(7).fill('cloud')]);
-    expect(screen.getByRole('button', { name: /Nano · 4\/7/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Cloud · 7\/7/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Nano · fired 3\/7/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Cloud · fired 0\/7/ })).toBeTruthy();
     expect(screen.getByText('On-device only')).toBeTruthy();
     expect(screen.getByText('Cloud only')).toBeTruthy();
   });

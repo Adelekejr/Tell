@@ -19,7 +19,7 @@ async function verifyTellCard(card, keys) {
   if (!key || card.alg !== 'Ed25519') return false;
   const pub = await crypto.subtle.importKey(
     'raw', b64url(key.publicKey), { name: 'Ed25519' }, false, ['verify']);
-  // Each card version has its own prefix: tell-card-v2 today, tell-card-v1 for older cards.
+  // Each card version has its own prefix: tell-card-v3 today; tell-card-v2 and tell-card-v1 for older cards.
   const message = new TextEncoder().encode('tell-card-v' + card.payload.v + '\\n' + canon(card.payload));
   return crypto.subtle.verify('Ed25519', pub, b64url(card.sig), message);
 }`;

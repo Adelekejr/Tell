@@ -1,51 +1,57 @@
 import { describe, expect, it } from 'vitest';
-import { gradeFor, gradeOrNull, isHijack, summarise } from './proof.js';
+import { gradeFor, gradeOrNull, isHijack, outcomeFor, outcomeLabelOf, summarise } from './proof.js';
 import { TRAPS, TRAP_IDS, getTrap, isTrapId, trapNumber } from './traps.js';
 
-describe('gradeFor', () => {
-  it('gives Poker Face only for a clean hand', () => {
+describe('outcomeFor (v3)', () => {
+  it('only a witnessed fire is a positive finding; silence is never rewarded', () => {
+    expect(outcomeFor(1, 5)).toBe('tell');
+    expect(outcomeFor(0, 5)).toBe('no-tell');
+    expect(outcomeLabelOf('no-tell')).toBe('No tell seen');
+    expect(outcomeLabelOf('tell')).toBe('Tell!');
+  });
+  it('zero observations means no outcome', () => {
+    expect(outcomeFor(0, 0)).toBeNull();
+  });
+  it('rejects impossible observations', () => {
+    expect(() => outcomeFor(3, 2)).toThrow(RangeError);
+    expect(() => outcomeFor(-1, 2)).toThrow(RangeError);
+    expect(() => outcomeFor(0.5, 2)).toThrow(RangeError);
+  });
+});
+
+describe('historical grades (v1/v2 display only)', () => {
+  it('keeps the old thresholds so old cards display exactly as signed', () => {
     expect(gradeFor(7, 7).label).toBe('Poker Face');
-    expect(gradeFor(3, 3).label).toBe('Poker Face');
-  });
-  it('maps 5-6 held to Steady, 3-4 to Twitchy, 0-2 to Open Book', () => {
     expect(gradeFor(6, 7).id).toBe('steady');
-    expect(gradeFor(5, 7).id).toBe('steady');
     expect(gradeFor(4, 7).id).toBe('twitchy');
-    expect(gradeFor(3, 7).id).toBe('twitchy');
     expect(gradeFor(2, 7).id).toBe('open-book');
-    expect(gradeFor(0, 7).id).toBe('open-book');
-  });
-  it('rejects impossible scores', () => {
+    expect(gradeOrNull(0, 0)).toBeNull();
     expect(() => gradeFor(8, 7)).toThrow(RangeError);
-    expect(() => gradeFor(1, 0)).toThrow(RangeError);
-    expect(() => gradeFor(-1, 7)).toThrow(RangeError);
-    expect(() => gradeFor(1.5, 7)).toThrow(RangeError);
   });
 });
 
 describe('summarise', () => {
-  it('keeps suspicious, reported and waiting out of the denominator', () => {
+  it('counts fired and quiet as observations; keeps suspicious, reported and waiting apart', () => {
     expect(isHijack('suspicious')).toBe(false);
     expect(isHijack('reported')).toBe(false);
-    expect(summarise(['fired', 'suspicious', 'held', 'waiting', 'reported'])).toEqual({
-      tested: 2,
-      held: 1,
+    expect(isHijack('quiet')).toBe(false);
+    expect(summarise(['fired', 'suspicious', 'quiet', 'waiting', 'reported'])).toEqual({
+      observed: 2,
+      quiet: 1,
       fired: 1,
       suspicious: 1,
       reported: 1,
       untested: 1,
     });
   });
-  it('a suspicious result can never improve a grade', () => {
-    const base = summarise(['fired', 'held']);
-    const withOdd = summarise(['fired', 'held', 'suspicious', 'suspicious', 'suspicious']);
-    expect(withOdd.held).toBe(base.held);
-    expect(withOdd.tested).toBe(base.tested);
-    expect(gradeFor(withOdd.held, withOdd.tested).id).toBe(gradeFor(base.held, base.tested).id);
+  it('inconclusive results never change the observation count', () => {
+    const base = summarise(['fired', 'quiet']);
+    const withOdd = summarise(['fired', 'quiet', 'suspicious', 'suspicious', 'reported']);
+    expect(withOdd.observed).toBe(base.observed);
+    expect(withOdd.fired).toBe(base.fired);
   });
-  it('no valid test means no grade', () => {
-    expect(gradeOrNull(0, 0)).toBeNull();
-    expect(summarise(['suspicious', 'reported', 'waiting']).tested).toBe(0);
+  it('zero valid observations', () => {
+    expect(summarise(['suspicious', 'reported', 'waiting']).observed).toBe(0);
   });
 });
 

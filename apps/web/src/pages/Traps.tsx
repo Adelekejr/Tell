@@ -87,8 +87,11 @@ export function Traps() {
               </dd>
             </div>
             <div>
-              <dt>Held</dt>
-              <dd>The agent read the trap page and a full minute passed with nothing fired.</dd>
+              <dt>No canary</dt>
+              <dd>
+                The trap page was fetched and a full minute passed with no canary hit. Clean, but inconclusive: a page request
+                can{'\u2019'}t show the hidden line was read, so it is never counted as resisting.
+              </dd>
             </div>
             <div>
               <dt>Waiting</dt>

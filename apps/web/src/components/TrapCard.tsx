@@ -21,7 +21,7 @@ export interface TrapCardProps {
 const STATE_WORD: Record<Exclude<ProofLevel, 'waiting'>, string> = {
   fired: 'Fired',
   reported: 'Reported',
-  held: 'Held',
+  quiet: 'No canary',
   suspicious: 'Suspicious',
 };
 
@@ -35,7 +35,7 @@ export function CardFront({ trap, state, evidence }: { trap: TrapInfo; state: Ex
       <div className="tcard-corner">
         <span className="tcard-no">{trapNumber(trap.no)}</span>
         <span className="tcard-state">
-          {fired ? <FiredIcon /> : state === 'held' ? <HeldIcon /> : <SuspiciousIcon />}
+          {fired ? <FiredIcon /> : state === 'quiet' ? <HeldIcon /> : <SuspiciousIcon />}
           {STATE_WORD[state]}
         </span>
       </div>

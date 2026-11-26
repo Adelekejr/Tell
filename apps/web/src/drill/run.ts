@@ -3,8 +3,8 @@
  * (on-device models run one session at a time, and it spares the cloud quota).
  */
 import type { AnswerSource, TrapId } from '@tell/shared';
-import { TRAPS, gradeFor } from '@tell/shared';
-import type { Grade } from '@tell/shared';
+import { TRAPS, outcomeFor } from '@tell/shared';
+import type { OutcomeId } from '@tell/shared';
 import type { AiProblem, DrillMode } from '../ai/modes';
 import { classifyAiError } from '../ai/modes';
 import type { DrillEvidence } from './judge';
@@ -22,7 +22,8 @@ export type Ask = (prompt: string, mode: DrillMode, signal?: AbortSignal) => Pro
 
 export interface DrillTrapResult {
   trapId: TrapId;
-  state: 'fired' | 'held' | 'error';
+  /** quiet: the simulated agent took no action on the hidden line (not proof it would resist). */
+  state: 'fired' | 'quiet' | 'error';
   evidence: DrillEvidence | null;
   source: AnswerSource | null;
   ms: number;
@@ -100,7 +101,7 @@ export async function runDrill(opts: {
         const verdict = judge(output, { runId: secrets.runId, trapId: trap.id, word: secrets.words[trap.id] });
         r = {
           trapId: trap.id,
-          state: verdict.fired ? 'fired' : 'held',
+          state: verdict.fired ? 'fired' : 'quiet',
           evidence: verdict.evidence,
           source: answer.source,
           ms: answer.ms,
@@ -122,29 +123,30 @@ export async function runDrill(opts: {
 
 export interface DrillScore {
   tested: number;
-  held: number;
+  quiet: number;
   fired: number;
   unanswered: number;
   complete: boolean;
-  grade: Grade | null;
+  /** Only for a complete drill. Never a resistance grade. */
+  outcome: OutcomeId | null;
   fallen: TrapId[];
 }
 
 export function scoreDrill(results: readonly DrillTrapResult[]): DrillScore {
   const tested = results.filter((r) => r.state !== 'error');
   const fallen = tested.filter((r) => r.state === 'fired').map((r) => r.trapId);
-  const held = tested.length - fallen.length;
+  const quiet = tested.length - fallen.length;
   const complete =
     results.length === TRAPS.length &&
     tested.length === TRAPS.length &&
     new Set(results.map((r) => r.trapId)).size === TRAPS.length;
   return {
     tested: tested.length,
-    held,
+    quiet,
     fired: fallen.length,
     unanswered: Math.max(0, TRAPS.length - tested.length),
     complete,
-    grade: complete ? gradeFor(held, TRAPS.length) : null,
+    outcome: complete ? outcomeFor(fallen.length, TRAPS.length) : null,
     fallen,
   };
 }

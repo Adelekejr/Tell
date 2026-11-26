@@ -9,17 +9,28 @@ declare global {
 }
 
 let appCheck: AppCheck | null = null;
+let appCheckStarted = false;
 
 /**
  * Starts Firebase and App Check once. Returns null when the project isn't
  * configured, so callers can show the "not configured" state instead of
- * crashing.
+ * crashing. If something else already created the default app (a hot
+ * reload, another module), App Check is still started on it exactly once,
+ * so AI Logic calls never go out without it.
  */
 export function getFirebaseApp(): FirebaseApp | null {
   if (!config.firebase) return null;
-  if (getApps().length) return getApp();
-  const app = initializeApp(config.firebase);
-  startAppCheck(app);
+  const app = getApps().length ? getApp() : initializeApp(config.firebase);
+  if (!appCheckStarted) {
+    appCheckStarted = true;
+    try {
+      startAppCheck(app);
+    } catch (err) {
+      // initializeAppCheck throws if App Check was already set up on this app
+      // with other options; that instance keeps working, so carry on.
+      if (import.meta.env.DEV) console.warn('[Tell] App Check was already initialised on this app.', err);
+    }
+  }
   return app;
 }
 

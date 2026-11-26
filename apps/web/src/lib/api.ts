@@ -156,7 +156,7 @@ export function fetchPage(url: string): Promise<FetchedPage> {
 /** What the drill sends to be signed: the per-trap outcome only, never the replies. */
 export interface DrillTrapReport {
   trapId: TrapId;
-  state: 'fired' | 'held' | 'error';
+  state: 'fired' | 'quiet' | 'error';
   evidence: string | null;
   source: 'on-device' | 'cloud' | null;
 }
@@ -188,12 +188,13 @@ export function getCard(id: string, signal?: AbortSignal): Promise<CardRecord> {
 export interface BoardPage {
   entries: BoardEntry[];
   range: BoardRange;
-  pokerFaceOnly: boolean;
+  tellOnly: boolean;
   now: number;
 }
 
-export function getBoard(range: BoardRange, pokerFaceOnly: boolean, signal?: AbortSignal): Promise<BoardPage> {
-  return call<BoardPage>(`/api/board?range=${range}${pokerFaceOnly ? '&poker=1' : ''}`, signal ? { signal } : {});
+/** The board, rebuilt by the server from signed cards on every read. `tellOnly` keeps entries where a trap fired. */
+export function getBoard(range: BoardRange, tellOnly: boolean, signal?: AbortSignal): Promise<BoardPage> {
+  return call<BoardPage>(`/api/board?range=${range}${tellOnly ? '&tell=1' : ''}`, signal ? { signal } : {});
 }
 
 export function addToBoard(cardId: string, name: string): Promise<{ entry: BoardEntry; added: boolean }> {

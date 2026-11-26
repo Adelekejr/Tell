@@ -1,11 +1,11 @@
 import { useReducer, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useParams } from 'react-router';
-import type { CardPayload, SignedCard } from '@tell/shared';
+import type { CardPayload, HistoricalScore, SignedCard } from '@tell/shared';
 import { BOARD_REFUSAL, FIX_TIPS, boardEligibility, cardModel, checkAgentName, isSampleCard } from '@tell/shared';
 import { drawCard, toPngBlob } from '../card/image';
 import { slugOf } from '../card/sample';
-import { cardDate, gradeLabel, legacyNote, scoreLine, shortUrl, siteUrl, trapName } from '../card/text';
+import { cardDate, headlineLine, historicalNote, shortUrl, siteUrl, trapName } from '../card/text';
 import { useVerifiedCard } from '../card/useVerifiedCard';
 import { Button } from '../components/Button';
 import { Input } from '../components/Field';
@@ -36,14 +36,15 @@ function CopyLink({ url }: { url: string }) {
 }
 
 async function share(card: SignedCard, url: string): Promise<'shared' | 'copied' | 'failed'> {
-  const p = cardModel(card.payload).current;
+  const model = cardModel(card.payload);
+  const p = model.current;
   const sample = isSampleCard(card);
   const text = sample
     ? 'A sample Tell scorecard. Check its signature yourself, then test your own agent.'
-    : `${gradeLabel(p)}: ${scoreLine(p)}. Check the signature yourself.`;
+    : `${headlineLine(model)}. Check the signature yourself.`;
   try {
     if (navigator.share) {
-      const canvas = await drawCard(p, url, sample);
+      const canvas = await drawCard(p, url, sample, model.historical);
       const blob = canvas ? await toPngBlob(canvas) : null;
       const file = blob ? new File([blob], `tell-card-${p.id}.png`, { type: 'image/png' }) : null;
       const data: ShareData = file && navigator.canShare?.({ files: [file] }) ? { title: 'Tell scorecard', text, url, files: [file] } : { title: 'Tell scorecard', text, url };
@@ -56,8 +57,8 @@ async function share(card: SignedCard, url: string): Promise<'shared' | 'copied'
   return (await copyText(url)) ? 'copied' : 'failed';
 }
 
-async function saveImage(p: CardPayload, url: string, sample = false): Promise<boolean> {
-  const canvas = await drawCard(p, url, sample);
+async function saveImage(p: CardPayload, url: string, sample = false, historical: HistoricalScore | null = null): Promise<boolean> {
+  const canvas = await drawCard(p, url, sample, historical);
   if (!canvas) return false;
   const a = document.createElement('a');
   a.href = canvas.toDataURL('image/png');
@@ -162,7 +163,7 @@ export function Scorecard() {
   const fallen = p.traps.filter((t) => t.result === 'fired' || t.result === 'reported');
   const listed = record.listed || listedNow;
   const eligibility = boardEligibility(card.payload);
-  const old = legacyNote(model);
+  const old = historicalNote(model);
 
   return (
     <section className="card-page">
@@ -180,7 +181,7 @@ export function Scorecard() {
         </div>
       ) : null}
       <div className="card-wrap">
-        <ScoreSheet payload={p} kid={card.kid} check={check} legacy={Boolean(model.legacy)} />
+        <ScoreSheet payload={p} kid={card.kid} check={check} historical={model.historical} />
         <p className="small muted card-date">
           {sample ? 'Sample \u00B7 signed with Tell\u2019s demo key' : `Signed ${cardDate(p.issuedAt)}`}
           {p.run ? ` \u00B7 run ${p.run}` : ''}
@@ -239,7 +240,7 @@ export function Scorecard() {
                 On the board
               </Button>
             ) : !eligibility.ok ? (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void saveImage(p, vUrl, sample)}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void saveImage(p, vUrl, sample, model.historical)}>
                 Save image
               </button>
             ) : (
@@ -248,7 +249,7 @@ export function Scorecard() {
               </button>
             )
           ) : (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => void saveImage(p, vUrl, sample)}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => void saveImage(p, vUrl, sample, model.historical)}>
               Save image
             </button>
           )}
@@ -268,7 +269,7 @@ export function Scorecard() {
           {p.kind === 'live' && eligibility.ok ? (
             <>
               {' '}
-              <button type="button" className="linkish small" onClick={() => void saveImage(p, vUrl, sample)}>
+              <button type="button" className="linkish small" onClick={() => void saveImage(p, vUrl, sample, model.historical)}>
                 Save the card as an image
               </button>
             </>

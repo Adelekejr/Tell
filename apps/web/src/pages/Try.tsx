@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { SAMPLE_CARD, cardModel, getTrap, trapNumber } from '@tell/shared';
-import { gradeLabel } from '../card/text';
+import { outcomeLabel, scoreLine } from '../card/text';
 import { CHECK_EXAMPLES, TRAP_EXAMPLES, checkExamplePath, exampleKey } from '../check/examples';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -119,10 +119,8 @@ export function Try() {
             </span>
             <Badge tone="accent">Sample</Badge>
           </div>
-          <p className="try-sample-grade">{gradeLabel(sample)}</p>
-          <p className="small muted">
-            {sample.score.held} of {sample.score.tested} held
-          </p>
+          <p className="try-sample-grade">{outcomeLabel(sample)}</p>
+          <p className="small muted">{scoreLine(sample)}</p>
           <div className="try-sample-actions">
             <Button to={cardPath('sample')} variant="primary" size="sm" arrow>
               Open the sample card

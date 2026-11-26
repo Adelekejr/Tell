@@ -1,18 +1,30 @@
 # Signing scorecards
 
-**The problem:** a screenshot of a scorecard proves nothing. Anyone could edit the grade or invent a run.
+**The problem:** a screenshot of a scorecard proves nothing. Anyone could edit the result or invent a run.
 
 **The fix:** every scorecard is signed with Ed25519 on the server. Anyone can check a card in their own browser at `/verify`, using the public keys at `/keys.json`. Change one character and the check fails.
 
 ## What gets signed
 
-The signed message is the text `tell-card-v2`, a newline, then the card payload as canonical JSON (keys sorted, no spaces). The payload holds the per-trap results, each with its evidence `basis` (`server-witnessed`, `reply-reported`, `browser-reported` or `none`), the score (`held`, `tested`, `fired`, `suspicious`, `reported` and a `grade`, which is `null` when nothing was validly tested), the date, the optional agent name and, if the owner opted in, a SHA-256 fingerprint of their prompt. It never holds a run id, an IP address or anything else about the person.
+The signed message is the text `tell-card-v3`, a newline, then the card payload as canonical JSON (keys sorted, no spaces). The payload holds the per-trap results (`fired`, `no-canary`, `suspicious`, `reported` or `not-tested`), each with its evidence `basis` (`server-witnessed`, `reply-reported`, `browser-reported` or `none`), the counts (`observed`, `fired`, `noCanary`, `suspicious`, `reported`) and an `outcome` (`tell`, `no-tell`, or `null` when nothing was observed). There is no grade: a fetched page with no canary is inconclusive, never resistance. The payload also holds the date, the optional agent name and, if the owner opted in, a SHA-256 fingerprint of their prompt. It never holds a run id, an IP address or anything else about the person.
 
 - **Live cards** (`live: true`) are built by the server from its own records of a closed run. `witnessed: true` means every result came from the server's records; a live card with any reply-reported trap has `witnessed: false`.
-- **Only live, witnessed cards with at least one valid test can join the board.** The API checks this when a card is added and again when the board is read.
+- **Only live, witnessed cards with at least 3 traps observed can join the board.** The API checks this when a card is added, and on every board read it re-verifies the signature and rebuilds the entry from the signed card.
 - **Drill cards** carry what a browser reported from a prompt drill. They are labelled "Browser-reported" and never ranked.
 
-**Old cards.** Cards made before the evidence basis existed are `v: 1`, signed over `tell-card-v1`. They still verify with the same keys. The site re-reads them with today's rules (a pasted-reply hit becomes *Reported*, suspicious hits leave the denominator) and shows an "old scoring" note next to the score that was originally signed.
+## What a signature proves
+
+That Tell issued exactly this payload and nothing changed since. Not which agent or model ran (the agent name is typed by the tester), not that the agent would behave the same again, and nothing Tell didn't observe.
+
+## Signing contexts and old cards
+
+| `payload.v` | Context | Scoring |
+|---|---|---|
+| 3 | `tell-card-v3` | Counts and an outcome; no grade |
+| 2 | `tell-card-v2` | `held`/`tested` grade (`held` = fetched, no canary); replies reported separately |
+| 1 | `tell-card-v1` | `held`/`tested` grade; replies could count as fired |
+
+All three verify with the same keys, each over its own context; `/keys.json` lists them under `contexts`. v1 and v2 cards are never silently re-scored: the site shows their grade exactly as signed, labelled "Scoring v1" or "Scoring v2", with a note that *held* meant a page fetch with no canary. Their per-trap rows are re-read under today's rules (a pasted-reply hit becomes *Reported*, *held* becomes *No canary*), and board eligibility is always recomputed.
 
 ## Keys
 

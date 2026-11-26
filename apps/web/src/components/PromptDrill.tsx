@@ -77,12 +77,12 @@ function FixTips({ fallen }: { fallen: readonly TrapId[] }) {
 
 function scoreLabel(result: DrillResult | null): string {
   const score = scoreDrill(result?.results ?? []);
-  return score.complete ? `${score.held}/7` : `${score.tested}/7 answered`;
+  return score.complete ? `fired ${score.fired}/7` : `${score.tested}/7 answered`;
 }
 
 /**
  * The prompt drill: Gemini plays the builder's agent against the seven traps,
- * entirely in the browser. Code decides held or fired. Nothing is stored and
+ * entirely in the browser. Code decides fired or no action. Nothing is stored and
  * the prompt never reaches Tell's servers.
  */
 export function PromptDrill({ sample }: { sample?: SampleId | null } = {}) {

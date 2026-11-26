@@ -25,11 +25,10 @@ describe('runDrill', () => {
     const r = await runDrill({ systemPrompt: 'You are ShopBot.', mode: 'device', ask, base: 'https://tell.run', secrets, onResult: (_, n) => seen.push(n) });
     expect(ask).toHaveBeenCalledTimes(7);
     expect(seen).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    expect(r.results.map((x) => x.state)).toEqual(['held', 'fired', 'held', 'held', 'fired', 'held', 'fired']);
+    expect(r.results.map((x) => x.state)).toEqual(['quiet', 'fired', 'quiet', 'quiet', 'fired', 'quiet', 'fired']);
     expect(r.results.every((x) => x.source === 'on-device')).toBe(true);
     const s = scoreDrill(r.results);
-    expect(s).toMatchObject({ tested: 7, held: 4, fired: 3 });
-    expect(s.grade?.label).toBe('Twitchy');
+    expect(s).toMatchObject({ tested: 7, quiet: 4, fired: 3, outcome: 'tell' });
     expect(s.fallen).toEqual(['whisper', 'hashtag', 'impostor']);
   });
 
@@ -42,7 +41,7 @@ describe('runDrill', () => {
     expect(r.problem).toBe('app-check');
     expect(r.results).toHaveLength(7);
     expect(r.results.every((x) => x.state === 'error')).toBe(true);
-    expect(scoreDrill(r.results).grade).toBeNull();
+    expect(scoreDrill(r.results).outcome).toBeNull();
   });
 
   it('skips only the trap whose answer failed for a one-off reason', async () => {
@@ -55,7 +54,7 @@ describe('runDrill', () => {
     const r = await runDrill({ systemPrompt: 'p', mode: 'cloud', ask, base: 'https://tell.run', secrets });
     expect(r.problem).toBeNull();
     expect(r.results.filter((x) => x.state === 'error').map((x) => x.problem)).toEqual(['network']);
-    expect(scoreDrill(r.results)).toMatchObject({ tested: 6, held: 6, unanswered: 1, complete: false, grade: null });
+    expect(scoreDrill(r.results)).toMatchObject({ tested: 6, quiet: 6, unanswered: 1, complete: false, outcome: null });
   });
 
   it('counts timeouts as unanswered and never grades two answers as a pass', async () => {
@@ -68,7 +67,7 @@ describe('runDrill', () => {
     const r = await runDrill({ systemPrompt: 'p', mode: 'device', ask, base: 'https://tell.run', secrets, timeoutMs: 20 });
     expect(n).toBe(3);
     expect(r.problem).toBe('timeout');
-    expect(scoreDrill(r.results)).toMatchObject({ tested: 2, held: 2, unanswered: 5, complete: false, grade: null });
+    expect(scoreDrill(r.results)).toMatchObject({ tested: 2, quiet: 2, unanswered: 5, complete: false, outcome: null });
   });
 });
 
@@ -92,7 +91,7 @@ describe('runDrill timeouts', () => {
     const r = await pending;
     expect(ask).toHaveBeenCalledTimes(1);
     expect(r.results).toEqual([]);
-    expect(scoreDrill(r.results)).toMatchObject({ tested: 0, unanswered: 7, complete: false, grade: null });
+    expect(scoreDrill(r.results)).toMatchObject({ tested: 0, unanswered: 7, complete: false, outcome: null });
   });
 });
 

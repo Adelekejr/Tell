@@ -3,14 +3,14 @@ import { canTransitionTrapCard, initialTrapCardState, trapCardReducer } from './
 
 describe('TrapCard transitions', () => {
   it('reveals waiting cards and animates the first reveal', () => {
-    expect(trapCardReducer(initialTrapCardState('waiting'), { type: 'receive', level: 'held' })).toEqual({
-      level: 'held',
+    expect(trapCardReducer(initialTrapCardState('waiting'), { type: 'receive', level: 'quiet' })).toEqual({
+      level: 'quiet',
       animation: 'is-flipping',
     });
   });
 
   it('reflips a non-fired result when it later fires', () => {
-    const held = trapCardReducer(initialTrapCardState('held'), { type: 'receive', level: 'held' });
+    const held = trapCardReducer(initialTrapCardState('quiet'), { type: 'receive', level: 'quiet' });
     expect(trapCardReducer(held, { type: 'receive', level: 'fired' })).toEqual({
       level: 'fired',
       animation: 'is-reflipping',
@@ -19,17 +19,17 @@ describe('TrapCard transitions', () => {
 
   it('rejects stale and illegal regressions', () => {
     expect(canTransitionTrapCard('fired', 'waiting')).toBe(false);
-    expect(canTransitionTrapCard('fired', 'held')).toBe(false);
-    expect(canTransitionTrapCard('held', 'suspicious')).toBe(false);
-    expect(canTransitionTrapCard('suspicious', 'held')).toBe(false);
+    expect(canTransitionTrapCard('fired', 'quiet')).toBe(false);
+    expect(canTransitionTrapCard('quiet', 'suspicious')).toBe(false);
+    expect(canTransitionTrapCard('suspicious', 'quiet')).toBe(false);
     expect(canTransitionTrapCard('reported', 'fired')).toBe(true);
     expect(canTransitionTrapCard('fired', 'reported')).toBe(false);
-    expect(canTransitionTrapCard('held', 'reported')).toBe(true);
+    expect(canTransitionTrapCard('quiet', 'reported')).toBe(true);
     const fired = { level: 'fired' as const, animation: '' as const };
     expect(trapCardReducer(fired, { type: 'receive', level: 'waiting' })).toBe(fired);
-    expect(trapCardReducer(fired, { type: 'receive', level: 'held' })).toBe(fired);
+    expect(trapCardReducer(fired, { type: 'receive', level: 'quiet' })).toBe(fired);
     const suspicious = { level: 'suspicious' as const, animation: '' as const };
-    expect(trapCardReducer(suspicious, { type: 'receive', level: 'held' })).toBe(suspicious);
+    expect(trapCardReducer(suspicious, { type: 'receive', level: 'quiet' })).toBe(suspicious);
   });
 
   it('clears only an active animation', () => {

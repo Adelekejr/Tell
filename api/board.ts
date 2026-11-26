@@ -13,10 +13,11 @@ import { getStore } from './_lib/store.js';
 const SCAN = 500;
 
 /**
- * Entries written before scoring v2 are re-checked against their signed card:
- * re-scored under the current rules, or taken off the board when they rest
- * on a pasted reply (or no longer have a valid test). The fix is written
- * back, so each old entry is migrated once.
+ * Every read rebuilds every entry from its signed card: the signature is
+ * checked against Tell's keys and eligibility is recomputed from the signed
+ * data under today's rules. Stored numbers are never trusted. An entry whose
+ * card is missing, tampered with or no longer eligible is hidden (written
+ * back once); an entry stored under older scoring is rewritten.
  */
 export async function currentBoard(store: Store, scan: number): Promise<BoardEntry[]> {
   const stored = await store.listBoard(scan);
@@ -24,29 +25,28 @@ export async function currentBoard(store: Store, scan: number): Promise<BoardEnt
   const out: BoardEntry[] = [];
   await Promise.all(
     stored.map(async (entry) => {
-      if (entry.scoring === BOARD_SCORING) {
-        out.push(entry as BoardEntry);
-        return;
-      }
       const card = (await store.getCard(entry.cardId))?.card ?? null;
       const trusted = card && verifySigned(card, ring) ? card.payload : null;
       const next = reconcileBoardEntry(entry, trusted);
       if (next) {
         out.push(next);
-        await store.rescoreBoardEntry(next).catch(() => undefined);
-      } else {
-        const why = trusted ? boardEligibility(trusted) : null;
-        await store.hideBoardEntry(entry.cardId, why && !why.ok ? why.reason : 'card-missing').catch(() => undefined);
+        if (entry.scoring !== BOARD_SCORING) await store.rescoreBoardEntry(next).catch(() => undefined);
+        return;
       }
+      const why = trusted ? boardEligibility(trusted) : null;
+      const reason = !card ? 'card-missing' : !trusted ? 'bad-signature' : why && !why.ok ? why.reason : 'card-mismatch';
+      await store.hideBoardEntry(entry.cardId, reason).catch(() => undefined);
     }),
   );
   return out;
 }
 
 /**
- * GET /api/board?range=week|all&poker=1
+ * GET /api/board?range=week|all&tell=1
  * The public board. Firestore rules block every browser read, so the page
- * reads it here. Entries hold an agent name, a score and a date: nothing else.
+ * reads it here. Entries hold an agent name (not verified), what Tell
+ * observed (fired N of M fetched) and a date: nothing else. Ranked by evidence
+ * (traps observed), then newest; never by how few traps fired.
  */
 export async function GET(req: Request): Promise<Response> {
   const store = await getStore();
@@ -55,15 +55,16 @@ export async function GET(req: Request): Promise<Response> {
   if (!(await allow(store, 'publicRead', ipKey(clientIp(req), now), now))) return withCors(req, json({ error: 'rate-limited' }, 429));
   const url = new URL(req.url);
   const range: BoardRange = url.searchParams.get('range') === 'all' ? 'all' : 'week';
-  const pokerFaceOnly = url.searchParams.get('poker') === '1';
-  const entries = rankBoard(await currentBoard(store, SCAN), { range, pokerFaceOnly, now, limit: BOARD_PAGE });
-  return withCors(req, json({ entries, range, pokerFaceOnly, now }));
+  const tellOnly = url.searchParams.get('tell') === '1';
+  const entries = rankBoard(await currentBoard(store, SCAN), { range, tellOnly, now, limit: BOARD_PAGE });
+  return withCors(req, json({ entries, range, tellOnly, now }));
 }
 
 /**
  * POST /api/board  { cardId, name }
- * Opt-in. Only live cards whose every result is server-witnessed, that have
- * at least one validly tested trap, and whose signature checks out can join,
+ * Opt-in. Only live cards whose every result is server-witnessed, with at
+ * least BOARD_MIN_OBSERVED traps fetched and fully watched, and whose
+ * signature checks out can join,
  * once each. Drill cards and reply-reported cards never can.
  */
 export async function POST(req: Request): Promise<Response> {

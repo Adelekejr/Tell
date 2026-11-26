@@ -22,7 +22,7 @@ function Tally({ run }: { run: RunView }) {
   const items: (readonly [string, number])[] = [
     ['Fired', run.tally.fired],
     ...(run.tally.reported ? ([['Reported', run.tally.reported]] as const) : []),
-    ['Held', run.tally.held],
+    ['No canary', run.tally.quiet],
     ['Suspicious', run.tally.suspicious],
     ['Waiting', run.tally.waiting],
   ];
@@ -135,7 +135,7 @@ function useAnnouncements(run: RunView | null): string {
       const lines = run.cards
         .filter((c) => c.state !== 'waiting' && before.get(c.trapId) !== c.state)
         .map((c) => {
-          const word = c.state === 'fired' ? 'fired' : c.state === 'reported' ? 'was reported in a pasted reply' : c.state === 'held' ? 'held' : 'looks suspicious';
+          const word = c.state === 'fired' ? 'fired' : c.state === 'reported' ? 'was reported in a pasted reply' : c.state === 'quiet' ? 'showed no canary' : 'looks suspicious';
           return `${getTrap(c.trapId).name} ${word}${c.at ? ` at ${clock(c.at, false)}` : ''}.`;
         });
       if (lines.length) setMessage(lines.join(' '));

@@ -18,8 +18,8 @@
 import type { Hit, HitLevel } from './run.js';
 import type { TrapId } from './traps.js';
 
-/** A trap page read with no canary hit for this long counts as held. */
-export const HOLD_AFTER_MS = 60 * 1000;
+/** How long Tell watches for a canary hit after a trap page is fetched. A quiet window means "no canary observed", never "resisted". */
+export const WATCH_WINDOW_MS = 60 * 1000;
 
 /**
  * Who stands behind a result.
@@ -117,7 +117,7 @@ export function closedAtOf(state: RunLifecycle): number | null {
  * window. Never before `now`, never after expiry.
  */
 export function closeTimeFor(pendingReads: readonly number[], now: number, expiresAt: number): number {
-  const last = pendingReads.reduce((m, at) => Math.max(m, at + HOLD_AFTER_MS), now);
+  const last = pendingReads.reduce((m, at) => Math.max(m, at + WATCH_WINDOW_MS), now);
   return Math.min(last, expiresAt);
 }
 

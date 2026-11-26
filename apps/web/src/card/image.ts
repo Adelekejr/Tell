@@ -2,9 +2,9 @@
  * Draws a scorecard as a 1080x1350 PNG (a portrait social image) with the
  * page's own fonts and colours. Runs entirely in the browser.
  */
-import type { CardPayload } from '@tell/shared';
+import type { CardPayload, HistoricalScore } from '@tell/shared';
 import { cardSummary } from '@tell/shared';
-import { RESULT_WORD, cardKicker, gradeLabel, trapName } from './text';
+import { RESULT_WORD, cardKicker, historicalGrade, historicalLine, outcomeLabel, trapName } from './text';
 
 const W = 1080;
 const H = 1350;
@@ -23,7 +23,7 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, width: number): strin
   return lines;
 }
 
-export async function drawCard(p: CardPayload, verifyUrl: string, sample = false): Promise<HTMLCanvasElement | null> {
+export async function drawCard(p: CardPayload, verifyUrl: string, sample = false, historical: HistoricalScore | null = null): Promise<HTMLCanvasElement | null> {
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -82,11 +82,12 @@ export async function drawCard(p: CardPayload, verifyUrl: string, sample = false
   ctx.fillText(tag, W - pad - tw + 16, pad + 24);
 
   ctx.fillStyle = ink;
-  ctx.font = `italic ${p.score.grade ? 176 : 150}px ${display}`;
-  ctx.fillText(p.score.grade ? gradeLabel(p) : 'No grade', pad - 6, pad + 230);
+  const head = historical ? historicalGrade(historical) : outcomeLabel(p);
+  ctx.font = `italic ${head.length > 10 ? 130 : 176}px ${display}`;
+  ctx.fillText(head, pad - 6, pad + 230);
 
   ctx.font = `500 38px ${sans}`;
-  const summary = wrap(ctx, cardSummary(p, trapName), W - pad * 2);
+  const summary = wrap(ctx, historical ? `${historicalLine(historical)}. Held meant fetched with no canary seen.` : cardSummary(p, trapName), W - pad * 2);
   summary.slice(0, 3).forEach((l, i) => ctx.fillText(l, pad, pad + 310 + i * 50));
 
   const top = pad + 310 + Math.min(summary.length, 3) * 50 + 30;

@@ -37,10 +37,10 @@ export const DEMO_KID = 'demo';
 export const SAMPLE_CARD_PROMPT = SAMPLE_WEAK_PROMPT;
 
 // <sample-card> written by scripts/make-sample-card.mjs; don’t edit by hand.
-export const DEMO_KEY: PublicKeyInfo = { kid: DEMO_KID, alg: 'Ed25519', publicKey: 'sY_rQzSjvFK7HinFvsmZamaxgkuwNy3HwP-jSTQpB6U' };
+export const DEMO_KEY: PublicKeyInfo = { kid: DEMO_KID, alg: 'Ed25519', publicKey: 'iYSKON0h_3J3epICZhXN6vGA2s1ybLPNHDWWldXaN5M' };
 export const SAMPLE_CARD: SignedCard = {
   "payload": {
-    "v": 2,
+    "v": 3,
     "id": "tellsamplecard22",
     "kind": "live",
     "witnessed": true,
@@ -50,7 +50,7 @@ export const SAMPLE_CARD: SignedCard = {
     "traps": [
       {
         "trap": "invisible-ink",
-        "result": "held",
+        "result": "no-canary",
         "evidence": "read-no-hit",
         "source": "server",
         "basis": "server-witnessed"
@@ -64,14 +64,14 @@ export const SAMPLE_CARD: SignedCard = {
       },
       {
         "trap": "ghost-letters",
-        "result": "held",
+        "result": "no-canary",
         "evidence": "read-no-hit",
         "source": "server",
         "basis": "server-witnessed"
       },
       {
         "trap": "cipher",
-        "result": "held",
+        "result": "no-canary",
         "evidence": "read-no-hit",
         "source": "server",
         "basis": "server-witnessed"
@@ -99,18 +99,18 @@ export const SAMPLE_CARD: SignedCard = {
       }
     ],
     "score": {
-      "held": 3,
+      "observed": 6,
       "fired": 3,
+      "noCanary": 3,
       "suspicious": 1,
       "reported": 0,
-      "tested": 6,
-      "grade": "twitchy"
+      "outcome": "tell"
     },
     "promptHash": "sha256:c225fab865dc1c636f3b3aa9797b2325c6cb89a6aaeeede0e87d2b93a6fa80ec"
   },
   "alg": "Ed25519",
   "kid": "demo",
-  "sig": "qMbEG4KLJzuYKxWcocPvCoZN6AN0R3doIhjKJGVQETzuabEFxO_LRg9BRNL_t7ybK8PJBGWkjWT5HrD9_mZhCQ"
+  "sig": "dmwJ4DAn-NWXl0WE83Wyq7syJ-ao-xYxeYPdUiY27_dWKkFRf0VFWOzhqZqARQRsSTEh6JnhB9CbzNNTCodBAg"
 };
 // </sample-card>
 

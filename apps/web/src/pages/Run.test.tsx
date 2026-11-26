@@ -172,6 +172,8 @@ describe('run wording', () => {
     expect(evidenceFor({ ...base, reason: 'no-canary' }, false).evidence).toBe('Fetched \u00B7 no canary in 60 s');
     expect(evidenceFor({ ...base, state: 'waiting', reason: 'reading' }, false).backLabel).toMatch(/^Fetched \d\d:\d\d$/);
     expect(evidenceFor({ ...base, state: 'waiting', reason: 'not-reached', at: null, readAt: null }, true).backLabel).toBe('Not reached');
+    // A reason from a newer API never crashes an older page.
+    expect(evidenceFor({ ...base, reason: 'something-new' as never }, false)).toEqual({ backLabel: '' });
   });
   it('headlines follow the hand', () => {
     expect(headline(view()).title).toBe('Cards are dealt.');

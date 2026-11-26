@@ -22,7 +22,7 @@ function Tally({ run }: { run: RunView }) {
   const items: (readonly [string, number])[] = [
     ['Fired', run.tally.fired],
     ...(run.tally.reported ? ([['Reported', run.tally.reported]] as const) : []),
-    ['No canary', run.tally.quiet],
+    ['No canary', run.tally.quiet ?? 0],
     ['Suspicious', run.tally.suspicious],
     ['Waiting', run.tally.waiting],
   ];

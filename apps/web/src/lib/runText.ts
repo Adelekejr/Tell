@@ -26,6 +26,9 @@ export function evidenceFor(card: CardView, finished: boolean): { evidence?: str
       return { backLabel: `Fetched ${clock(card.readAt, false)}` };
     case 'not-reached':
       return { backLabel: finished ? 'Not reached' : 'Waiting' };
+    default:
+      // A reason this page doesn't know yet (an API newer than a cached page): show nothing rather than crash.
+      return { backLabel: '' };
   }
 }
 

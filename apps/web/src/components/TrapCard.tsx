@@ -82,7 +82,7 @@ export function TrapCard({ trap, state, evidence, backLabel = 'Waiting', decorat
   }, [card.animation, card.level, decorative]);
 
   const revealed = visibleState !== 'waiting';
-  const className = ['tcard', revealed ? 'is-flipped' : '', card.animation].filter(Boolean).join(' ');
+  const className = ['tcard', revealed ? 'is-flipped' : 'is-waiting', card.animation].filter(Boolean).join(' ');
   const word = revealed ? STATE_WORD[visibleState] : 'Waiting';
   const label = `${trap.name}: ${word}${evidence ? `. ${evidence}` : ''}`;
   const faces = (

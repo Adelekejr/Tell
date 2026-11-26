@@ -3,7 +3,7 @@ import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react';
 import { TRAPS, trapNumber } from '@tell/shared';
 import type { TrapInfo } from '@tell/shared';
 import { tick, useReducedMotion } from '../lib/motion';
-import { CardBack, CardFront } from './TrapCard';
+import { CardBack } from './TrapCard';
 import {
   FAN_CARD_COUNT,
   FAN_HERO_INDEX,
@@ -25,8 +25,6 @@ import type { Spring } from './fan-state';
 /** The hand in number order, No.01 to No.07. */
 const HAND: readonly TrapInfo[] = [...TRAPS].sort((a, b) => a.no - b.no);
 
-const DEAL_STAGGER = 60;
-const DEAL_MS = 400;
 /** Pointer travel (px) before a press becomes a drag instead of a tap. */
 const DRAG_SLOP = 8;
 /** A turned card rises a little so its face reads. */
@@ -177,17 +175,10 @@ export function Fan() {
   // Draw before paint, and again whenever a card turns over.
   useLayoutEffect(() => {
     reducedRef.current = reduced;
-    upRef.current = (i: number) => fanCardIsUp(fan, i, reduced);
+    upRef.current = (i: number) => fanCardIsUp(fan, i);
     draw();
   }, [draw, fan, reduced]);
   useEffect(() => stop, [stop]);
-
-  // After the deal, the front card turns over on its own, unless the visitor got there first.
-  useEffect(() => {
-    if (reduced) return;
-    const t = window.setTimeout(() => dispatch({ type: 'hero-dealt' }), HAND.length * DEAL_STAGGER + DEAL_MS + 140);
-    return () => window.clearTimeout(t);
-  }, [reduced]);
 
   // Keyboard turns keep focus on the card that came to the front.
   useEffect(() => {
@@ -320,7 +311,7 @@ export function Fan() {
 
   function select(i: number) {
     if (i === frontOf(spring.current ? spring.current.target : pos.current)) {
-      dispatch({ type: 'flip', index: i, reduced });
+      dispatch({ type: 'flip', index: i });
       return;
     }
     settle(shortestTarget(spring.current ? spring.current.target : pos.current, i));
@@ -350,8 +341,7 @@ export function Fan() {
       onDragStart={(e) => e.preventDefault()}
     >
       {HAND.map((trap, i) => {
-        const hero = i === FAN_HERO_INDEX;
-        const faceUp = fanCardIsUp(fan, i, reduced);
+        const faceUp = fanCardIsUp(fan, i);
         const atFront = i === active;
         return (
           <div
@@ -372,7 +362,7 @@ export function Fan() {
               tabIndex={atFront ? 0 : -1}
               aria-label={
                 faceUp
-                  ? `${trap.name}: ${hero ? 'Tell! It fired.' : trap.trick}`
+                  ? `${trap.name}: ${trap.trick}`
                   : `${trap.name}, face down${atFront ? '' : '. Press to bring it to the front.'}`
               }
               onClick={() => onClick(i)}
@@ -380,7 +370,7 @@ export function Fan() {
             >
               <div className="tcard-inner" aria-hidden="true">
                 <CardBack trap={trap} label="" />
-                {hero ? <CardFront trap={trap} state="fired" evidence={'canary hit \u00B7 word \u2713'} /> : <TrickFace trap={trap} />}
+                <TrickFace trap={trap} />
               </div>
             </button>
           </div>

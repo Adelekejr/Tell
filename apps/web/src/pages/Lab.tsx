@@ -7,7 +7,6 @@ import { Notice } from '../components/Notice';
 import { TaskBox } from '../components/TaskBox';
 import type { SavedRun } from '../lib/api';
 import { ApiError, clearLastRun, createRun, getRun, loadLastRun, saveLastRun } from '../lib/api';
-import { useLogoLoading } from '../components/logo-loading';
 import { usePageTitle } from '../lib/title';
 
 type Tab = 'live' | 'drill';
@@ -17,7 +16,6 @@ const HOURS = RUN_TTL_MS / 3_600_000;
 const PromptDrill = lazy(() => import('../components/PromptDrill').then((m) => ({ default: m.PromptDrill })));
 
 function DrillLoadingFallback() {
-  useLogoLoading(true);
   return <p className="small muted lab-drill">Loading the drill…</p>;
 }
 

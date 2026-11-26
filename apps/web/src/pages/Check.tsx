@@ -27,7 +27,6 @@ import { cloudReady, pickEngine } from '../drill/engine';
 import { ASK_TIMEOUT_MS, withTimeout } from '../drill/run';
 import { ApiError, fetchPage } from '../lib/api';
 import { usePageTitle } from '../lib/title';
-import { useLogoLoading } from '../components/logo-loading';
 
 type HybridModule = typeof Hybrid;
 const loadHybrid = (() => {
@@ -121,7 +120,6 @@ export function Check() {
 
   const { error, status, view, meta } = check;
   const loading = status === 'loading';
-  useLogoLoading(loading || explain.status === 'running');
 
   function clearExampleParam() {
     if (!params.has('example')) return;

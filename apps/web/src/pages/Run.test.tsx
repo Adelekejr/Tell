@@ -64,6 +64,8 @@ describe('Run page', () => {
     expect(container.querySelector('.page.dark')).toBeTruthy();
     expect(container.querySelectorAll('.tcard')).toHaveLength(7);
     expect(container.querySelectorAll('.tcard.is-flipped')).toHaveLength(0);
+    expect(container.querySelectorAll('.tcard.is-waiting')).toHaveLength(7);
+    expect(container.querySelector('.run-hand.is-open')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Finish run/ }).textContent).toContain('7 still face down');
   });
 
@@ -228,15 +230,12 @@ describe('waitFor sanity', () => {
     expect(noVisitYet(view())).toBe(true);
   });
 
-  it('the logo sways while the run is open and settles once it is finished', async () => {
-    api.getRun.mockResolvedValue(view());
-    renderRun();
-    await screen.findByText('Cards are dealt.');
-    const logo = () => screen.getAllByRole('link', { name: 'Tell, home' })[0]!;
-    await waitFor(() => expect(logo().classList.contains('is-loading')).toBe(true));
+  it('stops the waiting sway once the run is finished', async () => {
     api.getRun.mockResolvedValue(view([], {}, 'finished'));
-    await act(() => vi.advanceTimersByTimeAsync(2100));
-    await act(() => vi.advanceTimersByTimeAsync(1000));
-    await waitFor(() => expect(logo().classList.contains('is-loading')).toBe(false));
+    const { container } = renderRun();
+    await screen.findByRole('heading', { level: 1 });
+    expect(container.querySelector('.run-hand.is-open')).toBeNull();
   });
+
+
 });

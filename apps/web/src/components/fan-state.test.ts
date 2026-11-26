@@ -22,20 +22,17 @@ const visibleOrder = (pos: number) =>
   ids.filter((i) => cardPose(ringOffset(i, pos)).opacity > 0.5).sort((a, b) => ringOffset(a, pos) - ringOffset(b, pos));
 
 describe('fan cards', () => {
-  it('flips a card and toggles it back while preserving the hero deal rule', () => {
-    const up = fanReducer(initialFanState(), { type: 'flip', index: 0, reduced: false });
-    expect(up.touched).toBe(true);
-    expect(fanCardIsUp(up, 0, false)).toBe(true);
-    expect(fanReducer(up, { type: 'flip', index: 0, reduced: false }).up.has(0)).toBe(false);
-    expect(fanReducer(up, { type: 'flip', index: 7, reduced: false })).toBe(up);
+  it('flips a card and toggles it back, and ignores an out-of-range index', () => {
+    const up = fanReducer(initialFanState(), { type: 'flip', index: 0 });
+    expect(fanCardIsUp(up, 0)).toBe(true);
+    expect(fanCardIsUp(up, FAN_HERO_INDEX)).toBe(false);
+    expect(fanReducer(up, { type: 'flip', index: 0 }).up.has(0)).toBe(false);
+    expect(fanReducer(up, { type: 'flip', index: 7 })).toBe(up);
   });
 
-  it('the hero is No.02 and turns up after the deal until a visitor touches the hand', () => {
+  it('starts with No.02 at the front index, face down', () => {
     expect(FAN_HERO_INDEX).toBe(1);
-    const dealt = fanReducer(initialFanState(), { type: 'hero-dealt' });
-    expect(fanCardIsUp(dealt, FAN_HERO_INDEX, false)).toBe(true);
-    const touched = fanReducer(initialFanState(), { type: 'flip', index: 0, reduced: false });
-    expect(fanCardIsUp(fanReducer(touched, { type: 'hero-dealt' }), FAN_HERO_INDEX, false)).toBe(false);
+    expect(fanCardIsUp(initialFanState(), FAN_HERO_INDEX)).toBe(false);
   });
 });
 

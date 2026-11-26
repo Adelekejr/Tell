@@ -100,11 +100,14 @@
 }
 .taskbox-text {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.7;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  white-space: pre; /* one URL per line; never wrap at a hyphen */
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   color: var(--text);
 }
 .taskbox-copy {

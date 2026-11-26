@@ -73,7 +73,7 @@ describe('home fan', () => {
       seen.push(front());
     }
     expect(seen).toEqual([0, 6, 5, 4, 3, 2, 1]);
-    expect(cards().some((c) => c.className.includes('is-flipped') && c !== cards()[1])).toBe(false);
+    expect(cards().some((c) => c.className.includes('is-flipped'))).toBe(false);
   });
 
   it('tapping a card further round brings it to the front; tapping the front card flips it', () => {
@@ -136,17 +136,20 @@ describe('home fan', () => {
     expect(front()).toBe(1);
   });
 
-  it('with motion, the ring springs onto the card and the raised card turns to Tell!', () => {
+  it('with motion, every card stays face down after the deal, and the ring springs onto a tap', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
     setReducedMotion(false);
     render(<Fan />);
     act(() => vi.advanceTimersByTime(1500));
-    expect(cards()[1]!.getAttribute('aria-label')).toBe('The Whisper: Tell! It fired.');
+    expect(cards().every((c) => !c.className.includes('is-flipped'))).toBe(true);
+    expect(cards()[1]!.getAttribute('aria-label')).toBe('The Whisper, face down');
     fireEvent.click(cards()[4]!);
     act(() => vi.advanceTimersByTime(100));
     expect(front()).not.toBe(4);
     act(() => vi.advanceTimersByTime(1500));
     expect(front()).toBe(4);
     expect(slot(4).style.transform).toMatch(/^rotate\(0(\.0+)?deg\)/);
+    expect(cards()[4]!.className).not.toContain('is-flipped');
   });
+
 });

@@ -49,7 +49,7 @@ async function appCheckHeader(): Promise<Record<string, string>> {
 
 type CallInit = RequestInit & { appCheck?: boolean; quiet?: boolean };
 
-/** Every API call counts as work for the logo, except quiet background polls. */
+/** Every API call counts as work, except quiet background polls. */
 function call<T>(path: string, init: CallInit = {}): Promise<T> {
   return init.quiet ? send<T>(path, init) : trackWork(() => send<T>(path, init));
 }

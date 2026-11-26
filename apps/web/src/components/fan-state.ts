@@ -1,19 +1,17 @@
 export const FAN_CARD_COUNT = 7;
-/** The Whisper (No.02) starts at the front and turns to Tell! after the deal. */
+/** The Whisper (No.02) starts at the front. */
 export const FAN_HERO_INDEX = 1;
 /** Half the ring: a card this far round is directly behind the front. */
 export const FAN_HALF = FAN_CARD_COUNT / 2;
 
 export interface FanState {
   readonly up: ReadonlySet<number>;
-  readonly heroDealt: boolean;
-  readonly touched: boolean;
 }
 
-export type FanAction = { type: 'hero-dealt' } | { type: 'flip'; index: number; reduced: boolean };
+export type FanAction = { type: 'flip'; index: number };
 
 export function initialFanState(): FanState {
-  return { up: new Set<number>(), heroDealt: false, touched: false };
+  return { up: new Set<number>() };
 }
 
 function validIndex(index: number) {
@@ -22,21 +20,18 @@ function validIndex(index: number) {
 
 export function fanReducer(state: FanState, action: FanAction): FanState {
   switch (action.type) {
-    case 'hero-dealt':
-      return state.heroDealt ? state : { ...state, heroDealt: true };
     case 'flip': {
       if (!validIndex(action.index)) return state;
       const next = new Set(state.up);
-      if (!state.touched && (action.reduced || state.heroDealt)) next.add(FAN_HERO_INDEX);
       if (next.has(action.index)) next.delete(action.index);
       else next.add(action.index);
-      return { ...state, touched: true, up: next };
+      return { up: next };
     }
   }
 }
 
-export function fanCardIsUp(state: FanState, index: number, reduced: boolean): boolean {
-  return index === FAN_HERO_INDEX ? (state.touched ? state.up.has(index) : reduced || state.heroDealt) : state.up.has(index);
+export function fanCardIsUp(state: FanState, index: number): boolean {
+  return state.up.has(index);
 }
 
 /** Card index 0..6 for any whole ring position, negative or past 7. */

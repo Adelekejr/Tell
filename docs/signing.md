@@ -6,10 +6,13 @@
 
 ## What gets signed
 
-The signed message is the text `tell-card-v1`, a newline, then the card payload as canonical JSON (keys sorted, no spaces). The payload holds the per-trap results, the score, the date, the optional agent name and, if the owner opted in, a SHA-256 fingerprint of their prompt. It never holds a run id, an IP address or anything else about the person.
+The signed message is the text `tell-card-v2`, a newline, then the card payload as canonical JSON (keys sorted, no spaces). The payload holds the per-trap results, each with its evidence `basis` (`server-witnessed`, `reply-reported`, `browser-reported` or `none`), the score (`held`, `tested`, `fired`, `suspicious`, `reported` and a `grade`, which is `null` when nothing was validly tested), the date, the optional agent name and, if the owner opted in, a SHA-256 fingerprint of their prompt. It never holds a run id, an IP address or anything else about the person.
 
-- **Live cards** (`witnessed: true`) are built by the server from its own records of a closed run. Only these can join the board.
-- **Drill cards** (`witnessed: false`) carry what a browser reported from a prompt drill. They are labelled "Browser-reported" and never ranked.
+- **Live cards** (`live: true`) are built by the server from its own records of a closed run. `witnessed: true` means every result came from the server's records; a live card with any reply-reported trap has `witnessed: false`.
+- **Only live, witnessed cards with at least one valid test can join the board.** The API checks this when a card is added and again when the board is read.
+- **Drill cards** carry what a browser reported from a prompt drill. They are labelled "Browser-reported" and never ranked.
+
+**Old cards.** Cards made before the evidence basis existed are `v: 1`, signed over `tell-card-v1`. They still verify with the same keys. The site re-reads them with today's rules (a pasted-reply hit becomes *Reported*, suspicious hits leave the denominator) and shows an "old scoring" note next to the score that was originally signed.
 
 ## Keys
 

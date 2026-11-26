@@ -1,3 +1,4 @@
+import { appCheckMode } from './_lib/appcheck.js';
 import { getAdminApp, readServiceAccount } from './_lib/admin.js';
 import { json } from './_lib/http.js';
 import { loadKeyRing } from './_lib/signing.js';
@@ -30,6 +31,8 @@ export async function GET(): Promise<Response> {
     checks: {
       firestore,
       signingKey: signingCheck(),
+      // monitor = a missing App Check token is allowed (rate limits protect the API); enforce = required.
+      appCheck: appCheckMode(),
     },
   });
 }

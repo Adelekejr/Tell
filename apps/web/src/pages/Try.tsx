@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { SAMPLE_CARD, getTrap, trapNumber } from '@tell/shared';
+import { SAMPLE_CARD, cardModel, getTrap, trapNumber } from '@tell/shared';
 import { gradeLabel } from '../card/text';
 import { CHECK_EXAMPLES, TRAP_EXAMPLES, checkExamplePath, exampleKey } from '../check/examples';
 import { Badge } from '../components/Badge';
@@ -31,7 +31,7 @@ function Section({ id, title, children, intro }: { id: string; title: string; in
  */
 export function Try() {
   usePageTitle('Try it');
-  const sample = SAMPLE_CARD.payload;
+  const sample = cardModel(SAMPLE_CARD.payload).current;
   return (
     <div className="try">
       <header className="try-head wrap">

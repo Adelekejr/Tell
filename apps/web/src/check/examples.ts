@@ -5,7 +5,7 @@
  * kind of trick; the clean one is there for comparison.
  */
 import type { TrapId } from '@tell/shared';
-import { TRAPS, demoTrapUrl, getTrap, renderDemoTrapPage, toBase64, toTagLetters, trapNumber } from '@tell/shared';
+import { CONTROL_SLUG, TRAPS, demoTrapUrl, getTrap, renderControlPage, renderDemoTrapPage, toBase64, toTagLetters, trapNumber } from '@tell/shared';
 import { API_BASE } from '../lib/api';
 import type { CheckView } from './analyse';
 import { analyseHtml, analyseText } from './analyse';
@@ -13,6 +13,9 @@ import { EXAMPLE_HTML, EXAMPLE_URL } from './example';
 
 /** Demo trap pages are served at /t/demo/N by Tell's API, and rendered here the same way. */
 export const DEMO_BASE = API_BASE || 'https://tell.run';
+
+/** The clean control page, served at /t/demo/control: nothing hidden, no canary. Nothing should fire or be flagged. */
+export const CONTROL_URL = `${DEMO_BASE}/t/demo/${CONTROL_SLUG}`;
 
 export interface CheckExample {
   id: string;
@@ -161,6 +164,16 @@ export const CHECK_EXAMPLES: readonly CheckExample[] = [
     input: CLEAN_TEXT,
     run: () => text(CLEAN_TEXT),
   },
+  {
+    id: 'control',
+    title: 'The clean control page',
+    blurb: 'Tell\u2019s false-positive check: an ordinary page with no hidden line.',
+    bad: false,
+    kind: 'page',
+    trap: null,
+    input: CONTROL_URL,
+    run: () => page(renderControlPage(), CONTROL_URL),
+  },
 ];
 
 /** Tell's own demo trap pages, one per trap: /t/demo/1 to /t/demo/7. */
@@ -185,6 +198,7 @@ export function exampleMeta(e: CheckExample): string {
   if (e.id.startsWith('trap-')) {
     return `Example: Tell\u2019s demo trap page ${e.id.slice(5)} of 7 (${getTrap(e.trap as TrapId).name}), checked in this browser`;
   }
+  if (e.id === 'control') return 'Example: Tell\u2019s clean control page, checked in this browser. Nothing in it is hidden';
   return `Example: made up, checked in this browser${e.bad ? '' : '. Nothing in it is hidden'}`;
 }
 
@@ -195,5 +209,6 @@ export function checkExamplePath(id: string): string {
 /** The small mono key at the start of an example row. */
 export function exampleKey(e: CheckExample): string {
   if (e.trap) return `${trapNumber(getTrap(e.trap).no)} \u00B7 ${getTrap(e.trap).name}`;
+  if (e.id === 'control') return 'Control';
   return e.bad ? 'Two tricks' : 'Clean';
 }

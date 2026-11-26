@@ -19,8 +19,8 @@ describe('Home', () => {
   it('leads with the headline and both doors', () => {
     renderAt('/');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Every AIhas a tell.');
-    expect(screen.getAllByRole('link', { name: /Test my agent/ }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: /Check a page/ })[0]?.getAttribute('href')).toBe('/check');
+    expect(screen.getAllByRole('link', { name: /Test an AI agent/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: /Inspect a webpage/ })[0]?.getAttribute('href')).toBe('/check');
   });
 
   it('lists all seven traps', () => {

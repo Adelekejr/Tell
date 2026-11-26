@@ -26,33 +26,33 @@ describe('decideCard projections', () => {
 
   it.each([
     [{ level: 'strong', at: 10 }, { state: 'fired', reason: 'word', at: 10, readAt: null }],
-    [{ level: 'echo', at: 20 }, { state: 'echo', reason: 'echo', at: 20, readAt: 5 }],
+    [{ level: 'echo', at: 20 }, { state: 'reported', reason: 'reply', at: 20, readAt: 5 }],
     [{ level: 'weak', at: 30 }, { state: 'suspicious', reason: 'no-word', at: 30, readAt: null }],
     [{ level: 'weak', wrongWord: true, at: 40 }, { state: 'suspicious', reason: 'wrong-word', at: 40, readAt: 5 }],
     [{ level: 'bot', at: 50 }, { state: 'suspicious', reason: 'preview-bot', at: 50, readAt: null }],
   ] as const)('projects hit %j legally', (hit, expected) => {
-    expect(decideCard({ trapId, hits: [{ trapId, ...hit }], readAt: expected.readAt, now, finished: false })).toEqual({
+    expect(decideCard({ trapId, hits: [{ trapId, ...hit }], readAt: expected.readAt, now, closedAt: null })).toEqual({
       trapId,
       ...expected,
     });
   });
 
   it('projects held, reading, and not-reached cards legally', () => {
-    expect(decideCard({ trapId, hits: [], readAt: 5, now, finished: true })).toEqual({
+    expect(decideCard({ trapId, hits: [], readAt: 5, now, closedAt: now })).toEqual({
       trapId,
       state: 'held',
       reason: 'ignored',
       at: 5,
       readAt: 5,
     });
-    expect(decideCard({ trapId, hits: [], readAt: 5, now: 5, finished: false })).toEqual({
+    expect(decideCard({ trapId, hits: [], readAt: 5, now: 5, closedAt: null })).toEqual({
       trapId,
       state: 'waiting',
       reason: 'reading',
       at: 5,
       readAt: 5,
     });
-    expect(decideCard({ trapId, hits: [], readAt: null, now, finished: false })).toEqual({
+    expect(decideCard({ trapId, hits: [], readAt: null, now, closedAt: null })).toEqual({
       trapId,
       state: 'waiting',
       reason: 'not-reached',
@@ -64,21 +64,22 @@ describe('decideCard projections', () => {
   it('accepts every legal CardView projection at compile time', () => {
     const legal: CardView[] = [
       { trapId, state: 'fired', reason: 'word', at: 1, readAt: null },
-      { trapId, state: 'echo', reason: 'echo', at: 1, readAt: 1 },
+      { trapId, state: 'reported', reason: 'reply', at: 1, readAt: 1 },
+      { trapId, state: 'waiting', reason: 'cut-short', at: 1, readAt: 1 },
       { trapId, state: 'suspicious', reason: 'preview-bot', at: 1, readAt: null },
       { trapId, state: 'held', reason: 'ignored', at: 1, readAt: 1 },
       { trapId, state: 'waiting', reason: 'reading', at: 1, readAt: 1 },
       { trapId, state: 'waiting', reason: 'not-reached', at: null, readAt: null },
     ];
-    expect(legal).toHaveLength(6);
+    expect(legal).toHaveLength(7);
   });
 });
 
-// @ts-expect-error A fired card cannot carry an echo reason.
+// @ts-expect-error A fired card cannot carry a reply reason.
 const mismatchedStateReason: CardView = {
   trapId: 'whisper',
   state: 'fired',
-  reason: 'echo',
+  reason: 'reply',
   at: 1,
   readAt: null,
 };

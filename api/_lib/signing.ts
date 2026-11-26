@@ -1,6 +1,6 @@
 import { createPrivateKey, createPublicKey, sign as edSign, verify as edVerify } from 'node:crypto';
 import type { KeyObject } from 'node:crypto';
-import type { CardPayload, PublicKeyInfo, SignedCard } from './shared.js';
+import type { AnyCardPayload, PublicKeyInfo, SignedCard } from './shared.js';
 import { CARD_ALG, PINNED_KEYS, cardMessage, fromBase64Url, isSignedCard, toBase64Url } from './shared.js';
 
 /**
@@ -70,7 +70,7 @@ export function loadKeyRing(env: NodeJS.ProcessEnv = process.env): KeyRing {
   };
 }
 
-export function signPayload(payload: CardPayload, key: SigningKey): SignedCard {
+export function signPayload(payload: AnyCardPayload, key: SigningKey): SignedCard {
   const sig = edSign(null, Buffer.from(cardMessage(payload)), key.privateKey);
   return { payload, alg: CARD_ALG, kid: key.kid, sig: toBase64Url(new Uint8Array(sig)) };
 }

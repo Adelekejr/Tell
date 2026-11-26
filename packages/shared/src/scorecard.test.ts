@@ -3,14 +3,14 @@ import { fromBase64Url, toBase64Url, toHex, utf8Bytes } from './bytes.js';
 import type { CardView } from './run.js';
 import { decideHand } from './run.js';
 import type { CardPayload, CardTrap } from './scorecard.js';
-import { cardMessage, cardSummary, isCardPayload, liveTraps, scoreTraps } from './scorecard.js';
+import { cardMessage, cardSummary, cardTrap, isCardPayload, liveTraps, scoreTraps } from './scorecard.js';
 import { TRAP_IDS, getTrap } from './traps.js';
 
-const held = (trap: CardTrap['trap']): CardTrap => ({ trap, result: 'held', evidence: 'read-no-hit', source: 'server' });
+const held = (trap: CardTrap['trap']): CardTrap => cardTrap(trap, 'read-no-hit', 'server');
 const payload = (over: Partial<CardPayload> = {}): CardPayload => {
   const traps = TRAP_IDS.map(held);
-  traps[1] = { trap: TRAP_IDS[1]!, result: 'fired', evidence: 'canary-word', source: 'server' };
-  return { v: 1, id: 'abcdefghijklmnop', kind: 'live', witnessed: true, agent: null, issuedAt: 1, run: 'R-ABCD', traps, score: scoreTraps(traps), promptHash: null, ...over };
+  traps[1] = cardTrap(TRAP_IDS[1]!, 'canary-word', 'server');
+  return { v: 2, id: 'abcdefghijklmnop', kind: 'live', witnessed: true, agent: null, issuedAt: 1, run: 'R-ABCD', traps, score: scoreTraps(traps), promptHash: null, ...over };
 };
 
 describe('bytes', () => {
@@ -39,18 +39,18 @@ describe('scorecards', () => {
         { trapId: 'cipher', at: 5, level: 'weak', wrongWord: true },
         { trapId: 'hashtag', at: 5, level: 'bot' },
       ],
-      { 'invisible-ink': 1 },
-      100,
-      true,
+      { 'invisible-ink': 1, impostor: 90_000 },
+      200_000,
+      100_000,
     );
-    expect(liveTraps(cards).map((t) => `${t.result}:${t.evidence}`)).toEqual([
-      'held:read-no-hit',
-      'fired:canary-word',
-      'fired:reply-echo',
-      'suspicious:wrong-word',
-      'suspicious:preview-bot',
-      'not-tested:not-reached',
-      'not-tested:not-reached',
+    expect(liveTraps(cards).map((t) => `${t.result}:${t.evidence}:${t.basis}`)).toEqual([
+      'held:read-no-hit:server-witnessed',
+      'fired:canary-word:server-witnessed',
+      'reported:reply-echo:reply-reported',
+      'suspicious:wrong-word:server-witnessed',
+      'suspicious:preview-bot:server-witnessed',
+      'not-tested:not-reached:none',
+      'not-tested:window-cut:none',
     ]);
   });
 
@@ -60,7 +60,7 @@ describe('scorecards', () => {
     expect(isCardPayload(payload({ witnessed: false }))).toBe(false);
     expect(isCardPayload(payload({ kind: 'drill', witnessed: false }))).toBe(false); // live evidence on a drill card
     const traps = payload().traps.slice();
-    traps[0] = { trap: TRAP_IDS[0]!, result: 'held', evidence: 'canary-word', source: 'server' };
+    traps[0] = { trap: TRAP_IDS[0]!, result: 'held', evidence: 'canary-word', source: 'server', basis: 'server-witnessed' };
     expect(isCardPayload(payload({ traps }))).toBe(false);
     expect(isCardPayload(payload({ promptHash: 'md5:abc' }))).toBe(false);
   });

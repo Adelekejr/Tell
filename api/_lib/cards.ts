@@ -1,13 +1,15 @@
 /**
- * Building scorecards. Live cards come only from the server's own records of
- * a closed run. Drill cards come from what a browser reported, are checked
- * for shape and consistency, and are always marked witnessed: false.
+ * Building scorecards (card v2). Live cards come only from the server's own
+ * records of a closed run; every trap carries its evidence basis, and a trap
+ * proven only by a pasted reply is "reported", never "fired". Drill cards
+ * come from what a browser reported, are checked for shape and consistency,
+ * and are always marked witnessed: false.
  */
 import { createHash } from 'node:crypto';
 import { newCardId } from './ids.js';
 import { closedRun, viewOf } from './runs.js';
 import type { CardEvidence, CardPayload, CardSource, CardTrap, Hit } from './shared.js';
-import { CARD_VERSION, MAX_CARD_PROMPT, TRAP_IDS, checkAgentName, isTrapId, liveTraps, runLabel, scoreTraps } from './shared.js';
+import { CARD_VERSION, MAX_CARD_PROMPT, TRAP_IDS, cardTrap, checkAgentName, hasAnyEvidence, isTrapId, liveTraps, runLabel, scoreTraps, witnessedOf } from './shared.js';
 import type { StoredRun } from './store.js';
 
 export class CardError extends Error {
@@ -47,17 +49,15 @@ export function promptHash(prompt: string): string {
 }
 
 function payloadFor(kind: CardPayload['kind'], traps: CardTrap[], extras: CardExtras, now: number, run: string | null): CardPayload {
-  let score;
-  try {
-    score = scoreTraps(traps);
-  } catch {
-    throw new CardError('nothing-tested', 'No trap was tested, so there is nothing to sign yet.');
-  }
+  // A card needs some evidence. It may still have no grade (tested 0) when the
+  // only evidence is inconclusive or reply-reported: it is signed with grade null.
+  if (!hasAnyEvidence(traps)) throw new CardError('nothing-tested', 'No trap was tested, so there is nothing to sign yet.');
+  const score = scoreTraps(traps);
   return {
     v: CARD_VERSION,
     id: newCardId(),
     kind,
-    witnessed: kind === 'live',
+    witnessed: witnessedOf(kind, traps),
     agent: extras.agent,
     issuedAt: now,
     run,
@@ -89,11 +89,11 @@ export function drillPayload(rawTraps: unknown, extras: CardExtras, now: number)
     const source = t.source === 'on-device' || t.source === 'cloud' ? (t.source as CardSource) : null;
     if (t.state === 'fired') {
       if (!DRILL_FIRED.includes(t.evidence as CardEvidence) || !source) throw new CardError('bad-request', 'A fired trap needs its evidence and source.');
-      return { trap, result: 'fired', evidence: t.evidence as CardEvidence, source };
+      return cardTrap(trap, t.evidence as CardEvidence, source);
     }
     if (t.state === 'held') {
       if (t.evidence !== null || !source) throw new CardError('bad-request', 'A held trap needs its source and no evidence.');
-      return { trap, result: 'held', evidence: 'no-action', source };
+      return cardTrap(trap, 'no-action', source);
     }
     if (t.state === 'error') throw new CardError('bad-request', 'An incomplete drill cannot be signed.');
     throw new CardError('bad-request', 'Unknown trap result.');

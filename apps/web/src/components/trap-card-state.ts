@@ -1,4 +1,5 @@
 import type { ProofLevel } from '@tell/shared';
+import { looksCaught } from '@tell/shared';
 
 export type TrapCardAnimation = '' | 'is-flipping' | 'is-reflipping';
 
@@ -12,13 +13,13 @@ export type TrapCardAction =
   | { type: 'animation-ended' };
 
 function isFired(level: ProofLevel) {
-  return level === 'fired' || level === 'echo';
+  return looksCaught(level);
 }
 
 /** Results only move forward: stale polling cannot hide a revealed card. */
 export function canTransitionTrapCard(from: ProofLevel, to: ProofLevel): boolean {
   if (from === to) return true;
-  const rank: Record<ProofLevel, number> = { waiting: 0, suspicious: 1, held: 1, echo: 2, fired: 3 };
+  const rank: Record<ProofLevel, number> = { waiting: 0, suspicious: 1, held: 1, reported: 2, fired: 3 };
   return rank[to] > rank[from];
 }
 

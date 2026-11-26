@@ -167,3 +167,7 @@
     align-items: center;
   }
 }
+.lab-mode-note {
+  margin: var(--s3) 0 0;
+  max-width: 60ch;
+}

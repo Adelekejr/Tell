@@ -2,9 +2,9 @@ import { useReducer, useRef } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { SignedCard } from '@tell/shared';
-import { CARD_ID_RE, canonicalJson } from '@tell/shared';
+import { CARD_ID_RE, canonicalJson, cardModel } from '@tell/shared';
 import { isSampleSlug, slugOf } from '../card/sample';
-import { cardDate, gradeLabel } from '../card/text';
+import { cardDate, cardEvidenceKind, gradeLabel, legacyNote, scoreLine } from '../card/text';
 import type { Check } from '../card/useVerifiedCard';
 import { checkCard, useVerifiedCard } from '../card/useVerifiedCard';
 import type { Verdict } from '../card/verify';
@@ -43,8 +43,11 @@ function Result({ card, check }: { card: SignedCard | null; check: Check }) {
   }
   const v = check.verdict;
   const ok = v.status === 'valid';
-  const p = card && ok ? card.payload : null;
+  const model = card && ok ? cardModel(card.payload) : null;
+  const p = model ? model.current : null;
   const sample = v.status === 'valid' && v.keySource === 'sample';
+  const reported = p ? p.traps.filter((t) => t.result === 'reported').length : 0;
+  const odd = p ? p.traps.filter((t) => t.result === 'suspicious').length : 0;
   return (
     <div aria-live="polite">
       <div className={`verify-verdict ${ok ? 'is-valid' : 'is-invalid'}`} role="status">
@@ -68,15 +71,14 @@ function Result({ card, check }: { card: SignedCard | null; check: Check }) {
             </Link>
           </Row>
           <Row k="Result">
-            {gradeLabel(p)} {'\u00B7'} {p.score.held} of {p.score.tested} held
+            {gradeLabel(p)} {'\u00B7'} {scoreLine(p)}
           </Row>
-          <Row k="Kind">
-            {sample
-              ? 'Sample, made up (shaped like a live test card)'
-              : p.witnessed
-                ? 'Live test, witnessed by Tell\u2019s server'
-                : 'Prompt drill, browser-reported'}
+          <Row k="Evidence">
+            {cardEvidenceKind(p, sample)}
+            {reported ? `. ${reported} reply-reported (not scored)` : ''}
+            {odd ? `. ${odd} inconclusive (not scored)` : ''}
           </Row>
+          {model?.legacy ? <Row k="Scoring">{legacyNote(model)}</Row> : null}
           {sample ? null : <Row k="Signed">{cardDate(p.issuedAt)}</Row>}
           <Row k="Key">
             <span className="mono">Ed25519 {'\u00B7'} {v.kid}</span>{' '}
@@ -105,7 +107,7 @@ function Result({ card, check }: { card: SignedCard | null; check: Check }) {
           <summary className="small">The exact signed data</summary>
           <pre className="mono">{JSON.stringify(card, null, 2)}</pre>
           <p className="small muted">
-            Signed bytes: <span className="mono">tell-card-v1</span>, a newline, then the payload as JSON with keys sorted (
+            Signed bytes: <span className="mono">tell-card-v{card.payload.v}</span>, a newline, then the payload as JSON with keys sorted (
             {canonicalJson(card.payload).length} characters).
           </p>
         </details>
@@ -169,12 +171,30 @@ function PasteCheck() {
 function Explainer() {
   return (
     <div className="verify-explain">
-      <h2 className="h3">What {'\u201C'}witnessed{'\u201D'} means</h2>
+      <h2 className="h3">What a valid signature proves, and what it doesn{'\u2019'}t</h2>
       <p className="small muted">
-        A <b>witnessed</b> card comes from a live test: Tell{'\u2019'}s server saw each trap page being read and each canary link being
-        hit, and built the card from its own records. A <b>browser-reported</b> card comes from a prompt drill that ran in someone{'\u2019'}s
-        browser. Tell signs what that browser reported, so the signature proves the card wasn{'\u2019'}t edited, not that Tell watched it.
-        Only witnessed cards can join the board. A <b>sample</b> card is made up and signed with a demo key that signed nothing else; it never joins the board either.
+        It proves Tell issued exactly this card and nothing on it changed since. It does <b>not</b> prove which AI agent was tested, and it
+        doesn{'\u2019'}t turn a claim into something Tell saw. So every result on a card says who stands behind it:
+      </p>
+      <ul className="small muted verify-bases">
+        <li>
+          <b>Witnessed.</b> Tell{'\u2019'}s own server saw it: a canary link hit with the trap{'\u2019'}s secret word, or a trap page read
+          followed by a full quiet minute. Only these count in the score, and only cards where every result is witnessed can join the board.
+        </li>
+        <li>
+          <b>Reported.</b> Found in an agent reply someone pasted. Tell checked the text but didn{'\u2019'}t see the agent do anything, so it
+          is shown apart and never scored or ranked.
+        </li>
+        <li>
+          <b>Browser-reported.</b> A prompt drill that ran in someone{'\u2019'}s browser. Tell signs what that browser reported.
+        </li>
+        <li>
+          <b>Odd</b> (inconclusive): a visit without the word, with a wrong word, or by a link-preview bot. Shown, never scored.
+        </li>
+      </ul>
+      <p className="small muted">
+        Cards signed before this rule (version 1) still verify. They show a note, because the old scoring counted odd visits as held and
+        pasted replies as fired. A <b>sample</b> card is made up and signed with a demo key that signed nothing else; it never joins the board.
       </p>
     </div>
   );

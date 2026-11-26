@@ -2,7 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type * as FirestoreModule from 'firebase-admin/firestore';
 import type { ServiceAccount } from './admin.js';
 import { getAdminApp } from './admin.js';
-import type { BoardCell, BoardEntry, GradeId, Hit, SignedCard, TrapId } from './shared.js';
+import type { BoardCell, BoardEntry, GradeId, Hit, SignedCard, StoredBoardEntry, TrapId } from './shared.js';
 import { isTrapId } from './shared.js';
 import type { Store, StoredCard, StoredRun, Words } from './store.js';
 
@@ -84,7 +84,7 @@ export class FirestoreStore implements Store {
       const snap = await tx.get(runRef);
       if (!snap.exists) return false;
       const d = snap.data() as { hitCount?: number; expiresAt: number; finishedAt?: unknown };
-      if (typeof d.finishedAt === 'number' || now >= d.expiresAt || (d.hitCount ?? 0) >= max) return false;
+      if ((typeof d.finishedAt === 'number' && now >= d.finishedAt) || now >= d.expiresAt || (d.hitCount ?? 0) >= max) return false;
       tx.create(runRef.collection('hits').doc(), { ...hit, expireAt: this.expireAt(d.expiresAt) });
       tx.update(runRef, { hitCount: this.ts.FieldValue.increment(1) });
       return true;
@@ -97,7 +97,7 @@ export class FirestoreStore implements Store {
       const snap = await tx.get(runRef);
       if (!snap.exists) return;
       const data = snap.data() as { reads?: Record<string, number>; expiresAt: number; finishedAt?: unknown };
-      if (typeof data.finishedAt === 'number' || at >= data.expiresAt) return;
+      if ((typeof data.finishedAt === 'number' && at >= data.finishedAt) || at >= data.expiresAt) return;
       const reads = (data.reads ?? {}) as Record<string, number>;
       if (reads[trapId] !== undefined) return;
       tx.update(runRef, { [`reads.${trapId}`]: at });
@@ -109,7 +109,7 @@ export class FirestoreStore implements Store {
     await this.db.runTransaction(async (tx) => {
       const snap = await tx.get(runRef);
       if (!snap.exists || typeof (snap.data() as { finishedAt?: unknown }).finishedAt === 'number') return;
-      tx.update(runRef, { finishedAt: at, status: 'finished' });
+      tx.update(runRef, { finishedAt: at, status: 'closing' });
     });
   }
 
@@ -151,11 +151,11 @@ export class FirestoreStore implements Store {
     });
   }
 
-  async listBoard(limit: number): Promise<BoardEntry[]> {
+  async listBoard(limit: number): Promise<StoredBoardEntry[]> {
     const snap = await this.db.collection('board').where('hidden', '==', false).orderBy('at', 'desc').limit(limit).get();
     return snap.docs.map((doc) => {
       const d = doc.data() as Record<string, unknown>;
-      return {
+      const entry: StoredBoardEntry = {
         cardId: doc.id,
         name: String(d.name ?? ''),
         held: Number(d.held),
@@ -164,7 +164,17 @@ export class FirestoreStore implements Store {
         cells: String(d.cells ?? '').split('') as BoardCell[],
         at: Number(d.at),
       };
+      if (typeof d.scoring === 'number') entry.scoring = d.scoring;
+      return entry;
     });
+  }
+
+  async rescoreBoardEntry(entry: BoardEntry): Promise<void> {
+    await this.db.collection('board').doc(entry.cardId).update({ ...entry, cells: entry.cells.join('') });
+  }
+
+  async hideBoardEntry(cardId: string, reason: string): Promise<void> {
+    await this.db.collection('board').doc(cardId).update({ hidden: true, hiddenReason: reason });
   }
 
   /** Cards are stored as the signed JSON string, so the signed bytes never drift through Firestore types. */

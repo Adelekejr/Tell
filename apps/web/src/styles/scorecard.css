@@ -103,6 +103,31 @@
 .sheet-row.is-not-tested .sheet-name {
   color: var(--muted);
 }
+/* Reported (a pasted reply) is shown, but dashed: user-submitted, never a witnessed fire. */
+.sheet-row.is-reported .sheet-name {
+  text-decoration: underline dashed var(--muted);
+  text-underline-offset: 4px;
+}
+.sheet-basis {
+  margin-left: 2px;
+  padding: 1px 5px;
+  border: 1px solid currentColor;
+  border-radius: var(--r-mini);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  opacity: 0.9;
+}
+.sheet-row.is-fired .sheet-basis {
+  opacity: 1;
+}
+.sheet-legend {
+  margin: 0;
+  padding: 10px var(--s5) 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
 .sheet-sig {
   display: flex;
   justify-content: space-between;

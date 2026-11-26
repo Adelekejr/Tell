@@ -18,12 +18,14 @@ import { usePageTitle } from '../lib/title';
 import { useLogoLoading } from '../components/logo-loading';
 
 function Tally({ run }: { run: RunView }) {
-  const items = [
+  // Reported (from a pasted reply) gets its own column only when there is one: it is never added to Fired.
+  const items: (readonly [string, number])[] = [
     ['Fired', run.tally.fired],
+    ...(run.tally.reported ? ([['Reported', run.tally.reported]] as const) : []),
     ['Held', run.tally.held],
     ['Suspicious', run.tally.suspicious],
     ['Waiting', run.tally.waiting],
-  ] as const;
+  ];
   return (
     <dl className="tally">
       {items.map(([label, n]) => (
@@ -45,7 +47,7 @@ function Timeline({ events }: { events: RunEvent[] }) {
         <h2 id="what-happened" className="label">
           What happened
         </h2>
-        <Badge tone="outline">Server-witnessed</Badge>
+        <Badge tone="outline">Server log</Badge>
       </div>
       {events.length === 0 ? (
         <p className="small muted ticker-empty">Nothing yet. The first visit to a trap shows up here.</p>
@@ -87,7 +89,7 @@ function ReplyBox({ run, onRun }: { run: RunView; onRun: (r: RunView) => void })
       setResult(
         r.matched.length === 0
           ? 'No secret word or canary link in that reply. Nothing fired.'
-          : `Found ${r.matched.map((id) => getTrap(id).name).join(', ')} in the reply.${r.recorded.length ? ' The card flipped.' : ' Already counted.'}`,
+          : `Found ${r.matched.map((id) => getTrap(id).name).join(', ')} in the reply.${r.recorded.length ? ' Marked as reported: shown on your card, but not witnessed, so not scored.' : ' Already noted.'}`,
       );
       setText('');
     } catch (err) {
@@ -100,7 +102,7 @@ function ReplyBox({ run, onRun }: { run: RunView; onRun: (r: RunView) => void })
     <section className="echo">
       <Textarea
         label={'Agent can\u2019t browse? Paste its reply.'}
-        hint="Tell checks it for secret words and canary links, then throws the text away."
+        hint={'Tell checks it for secret words and canary links, then throws the text away. Anything found is marked reported: Tell didn\u2019t see the agent act, so it isn\u2019t scored and the card can\u2019t join the board.'}
         placeholder="Paste what your agent wrote back"
         rows={3}
         value={text}
@@ -133,7 +135,7 @@ function useAnnouncements(run: RunView | null): string {
       const lines = run.cards
         .filter((c) => c.state !== 'waiting' && before.get(c.trapId) !== c.state)
         .map((c) => {
-          const word = c.state === 'fired' || c.state === 'echo' ? 'fired' : c.state === 'held' ? 'held' : 'looks suspicious';
+          const word = c.state === 'fired' ? 'fired' : c.state === 'reported' ? 'was reported in a pasted reply' : c.state === 'held' ? 'held' : 'looks suspicious';
           return `${getTrap(c.trapId).name} ${word}${c.at ? ` at ${clock(c.at, false)}` : ''}.`;
         });
       if (lines.length) setMessage(lines.join(' '));
@@ -148,14 +150,15 @@ export function Run() {
   const validId = /^[a-z2-7]{26}$/.test(id);
   const { run, error, offline, refresh, replace } = useRun(validId ? id : '');
   const [finishing, setFinishing] = useState(false);
-  // The logo sways the whole time the run is open, and settles once it is finished.
-  useLogoLoading((validId && !run && !error) || run?.status === 'open' || finishing);
+  // The logo sways the whole time the run is collecting evidence, and settles once it is finished.
+  const collecting = run?.status === 'open' || run?.status === 'closing';
+  useLogoLoading((validId && !run && !error) || collecting || finishing);
   const [finishError, setFinishError] = useState<string | null>(null);
   const announcement = useAnnouncements(run);
-  const finished = run ? run.status !== 'open' : false;
+  const finished = run ? run.status === 'finished' || run.status === 'expired' : false;
   const head = useMemo(() => (run ? headline(run) : null), [run]);
-  // A card can be signed once the run is closed and at least one trap was tested.
-  const canSign = run !== null && run.status !== 'open' && run.tally.waiting < run.cards.length;
+  // A card can be signed once the run is closed and at least one trap has any evidence.
+  const canSign = run !== null && finished && run.tally.waiting < run.cards.length;
   // Once the sign form is on screen, the sticky shortcut to it steps aside: one main action per view.
   const signInView = useInView('sign', canSign);
 
@@ -223,6 +226,8 @@ export function Run() {
                   <i aria-hidden="true" />
                   Live
                 </span>
+              ) : run.status === 'closing' ? (
+                'Closing'
               ) : run.status === 'finished' ? (
                 'Finished'
               ) : (
@@ -267,10 +272,14 @@ export function Run() {
         </aside>
       </div>
 
-      <div className={`sticky-bar${run.status !== 'open' && signInView ? ' is-hidden' : ''}`} aria-hidden={run.status !== 'open' && signInView ? true : undefined}>
+      <div className={`sticky-bar${finished && signInView ? ' is-hidden' : ''}`} aria-hidden={finished && signInView ? true : undefined}>
         <div className="sticky-inner">
           {finishError ? <Notice role="alert">{finishError}</Notice> : null}
-          {run.status === 'open' ? (
+          {run.status === 'closing' ? (
+            <Button disabled arrow sub={head?.sub ?? 'Watching the last pages'}>
+              Closing{'\u2026'}
+            </Button>
+          ) : run.status === 'open' ? (
             <Button
               onClick={finish}
               loading={finishing}

@@ -14,7 +14,7 @@ describe('GET /api/health', () => {
     expect(res.headers.get('cache-control')).toBe('no-store');
     const body = (await res.json()) as { ok: boolean; checks: Record<string, string> };
     expect(body.ok).toBe(true);
-    expect(body.checks).toEqual({ firestore: 'not-configured', signingKey: 'not-configured' });
+    expect(body.checks).toEqual({ firestore: 'not-configured', signingKey: 'not-configured', appCheck: 'monitor' });
   });
 
   it('says a signing key works without returning it', async () => {

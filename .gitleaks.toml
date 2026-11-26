@@ -1,0 +1,7 @@
+# Secret scan settings for CI. Uses gitleaks' default rules.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Detector test fixtures: well-known public sample tokens used to test the base64 decoder"
+paths = ['''packages/detector/test/.*''']

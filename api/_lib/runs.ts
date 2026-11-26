@@ -4,7 +4,7 @@
 import { identifyClient } from './bots.js';
 import { newRunId, newWords } from './ids.js';
 import { checkReply } from './reply.js';
-import { lifecycleOf } from './run-state.js';
+import { acceptsEvidence, closeTimeFor, closedAtOf, isClosed, lifecycleOf } from './run-state.js';
 import type { Hit, HitLevel, RunView, TrapId } from './shared.js';
 import { MAX_HITS_PER_RUN, RUN_TTL_MS, TRAP_IDS, decideHand, eventsOf, runLabel, tallyOf, taskText } from './shared.js';
 import type { Store, StoredRun, Words } from './store.js';
@@ -16,12 +16,23 @@ export function isExpired(run: StoredRun, now: number): boolean {
 
 /** Finished or expired: the evidence is final and the run can be signed. */
 export function closedRun(run: StoredRun, now: number): boolean {
-  return lifecycleOf(run, now).status !== 'open';
+  return isClosed(lifecycleOf(run, now));
 }
 
-/** Open = still collecting evidence. */
+/** Open or closing = still collecting evidence. */
 export function isOpen(run: StoredRun, now: number): boolean {
-  return lifecycleOf(run, now).status === 'open';
+  return acceptsEvidence(lifecycleOf(run, now));
+}
+
+/**
+ * When Finish pressed at `now` should close the run: after the watch window of
+ * every page that was read but has no deciding evidence yet. A page read
+ * 10 seconds ago still gets its full minute, so Held is never handed out early.
+ */
+export function finishTime(run: StoredRun, hits: readonly Hit[], now: number): number {
+  const cards = decideHand(hits, run.reads, now, null);
+  const pending = cards.filter((c) => c.state === 'waiting' && c.reason === 'reading').map((c) => c.readAt as number);
+  return closeTimeFor(pending, now, run.expiresAt);
 }
 
 export async function createRun(store: Store, now: number): Promise<{ run: StoredRun; words: Words }> {
@@ -40,9 +51,9 @@ export async function createRun(store: Store, now: number): Promise<{ run: Store
 }
 
 export function viewOf(run: StoredRun, hits: readonly Hit[], base: string, now: number): RunView {
-  const finished = run.finishedAt !== null || isExpired(run, now);
-  const at = run.finishedAt ?? (isExpired(run, now) ? run.expiresAt : now);
-  const cards = decideHand(hits, run.reads, at, finished);
+  const lifecycle = lifecycleOf(run, now);
+  const closedAt = closedAtOf(lifecycle);
+  const cards = decideHand(hits, run.reads, closedAt ?? now, closedAt);
   const links = TRAP_IDS.map((trapId) => ({ trapId, url: trapUrl(base, run.id, trapId) }));
   return {
     id: run.id,
@@ -50,7 +61,7 @@ export function viewOf(run: StoredRun, hits: readonly Hit[], base: string, now: 
     createdAt: run.createdAt,
     expiresAt: run.expiresAt,
     finishedAt: run.finishedAt,
-    status: run.finishedAt !== null ? 'finished' : isExpired(run, now) ? 'expired' : 'open',
+    status: lifecycle.status,
     task: taskText(links),
     links,
     cards,
@@ -97,7 +108,11 @@ export async function recordCanary(
   return (await store.addHit(run.id, hit, MAX_HITS_PER_RUN, now)) ? hit : null;
 }
 
-/** Pasted-reply fallback. Records an echo for each trap the reply proves, once. */
+/**
+ * Pasted-reply fallback. Records a reply-reported hit (stored level 'echo')
+ * for each trap the reply mentions, once. This is user-submitted evidence:
+ * it is shown, labelled, and never counted as witnessed.
+ */
 export async function recordReply(
   store: Store,
   run: StoredRun,
@@ -110,6 +125,7 @@ export async function recordReply(
   if (!isOpen(run, now) || matched.length === 0) return { matched, recorded };
   const existing = await store.listHits(run.id);
   for (const trapId of matched) {
+    // Witnessed proof already wins; one reported line per trap is enough.
     if (existing.some((h) => h.trapId === trapId && (h.level === 'strong' || h.level === 'echo'))) continue;
     if (await store.addHit(run.id, { trapId, at: now, level: 'echo', client: 'Pasted reply' }, MAX_HITS_PER_RUN, now)) {
       recorded.push(trapId);

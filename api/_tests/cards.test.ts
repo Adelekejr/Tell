@@ -2,8 +2,8 @@ import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { drillPayload, promptHash, readExtras } from '../_lib/cards.js';
 import { loadKeyRing, signPayload, verifySigned } from '../_lib/signing.js';
-import type { BoardEntry, RunView, SignedCard } from '../_lib/shared.js';
-import { RUN_TTL_MS, SAMPLE_CARD, TRAP_IDS, canonicalJson, isSignedCard } from '../_lib/shared.js';
+import type { BoardEntry, CardTrap, RunView, SignedCard } from '../_lib/shared.js';
+import { HOLD_AFTER_MS, RUN_TTL_MS, SAMPLE_CARD, TRAP_IDS, canonicalJson, cardTrap, isSignedCard, scoreTraps } from '../_lib/shared.js';
 import { getStore, resetStoreForTests } from '../_lib/store.js';
 import { GET as boardGet, POST as boardPost } from '../board.js';
 import { GET as cardGet } from '../card.js';
@@ -60,8 +60,9 @@ describe('signing round trip', () => {
 
   it('fails when any byte of the payload changes', () => {
     const edited = structuredClone(card);
-    edited.payload.traps[1] = { trap: TRAP_IDS[1]!, result: 'held', evidence: 'no-action', source: 'cloud' };
-    edited.payload.score = { held: 6, tested: 7, fired: 1, grade: 'steady' };
+    const traps = edited.payload.traps as CardTrap[];
+    traps[1] = cardTrap(TRAP_IDS[1]!, 'no-action', 'cloud');
+    edited.payload.score = scoreTraps(traps) as never;
     expect(isSignedCard(edited)).toBe(true); // still a valid shape...
     expect(verifySigned(edited, ring)).toBe(false); // ...but not what was signed
     expect(verifySigned({ ...card, payload: { ...card.payload, agent: 'Other Bot' } }, ring)).toBe(false);
@@ -144,6 +145,14 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
     await canary(req(`/c/${run.id}/2?w=${words!.whisper}`));
     return run;
   };
+  /** Press Finish, then let the last watch window run out so the run is truly finished. */
+  const finishAndSettle = async (id: string) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now());
+    const closing = (await (await finishRoute(req(`/api/run/${id}/finish`, { method: 'POST' }))).json()) as RunView;
+    vi.setSystemTime(Date.now() + HOLD_AFTER_MS + 1);
+    return closing;
+  };
 
   it('answers 503 without a signing key', async () => {
     vi.stubEnv('TELL_SIGNING_KEY_V1', '');
@@ -154,13 +163,16 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
   it('signs a live card from the server records, once per run', async () => {
     const run = await playedRun();
     expect((await signRoute(post('/api/sign', { kind: 'live', runId: run.id }))).status).toBe(409); // still open
-    await finishRoute(req(`/api/run/${run.id}/finish`, { method: 'POST' }));
+    const closing = await finishAndSettle(run.id);
+    expect(closing.status).toBe('closing'); // a page was read seconds ago: wait for its full minute
     const res = await signRoute(post('/api/sign', { kind: 'live', runId: run.id, agent: 'ShopBot' }));
     expect(res.status).toBe(201);
     const { card } = (await res.json()) as { card: SignedCard };
     expect(card.payload).toMatchObject({ kind: 'live', witnessed: true, agent: 'ShopBot', run: run.label, promptHash: null });
     expect(card.payload.traps.map((t) => t.result)).toEqual(['held', 'fired', 'not-tested', 'not-tested', 'not-tested', 'not-tested', 'not-tested']);
-    expect(card.payload.score).toEqual({ held: 1, tested: 2, fired: 1, grade: 'twitchy' });
+    expect(card.payload.score).toEqual({ held: 1, tested: 2, fired: 1, suspicious: 0, reported: 0, grade: 'twitchy' });
+    expect(card.payload.v).toBe(2);
+    expect(card.payload.traps.map((t) => (t as CardTrap).basis)).toEqual(['server-witnessed', 'server-witnessed', 'none', 'none', 'none', 'none', 'none']);
     expect(JSON.stringify(card)).not.toContain(run.id);
     // Signing again returns the same card, whatever the browser sends.
     const again = await signRoute(post('/api/sign', { kind: 'live', runId: run.id, agent: 'Liar Bot' }));
@@ -222,7 +234,7 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
 
   it('only live, witnessed, correctly signed cards join the board, once', async () => {
     const run = await playedRun();
-    await finishRoute(req(`/api/run/${run.id}/finish`, { method: 'POST' }));
+    await finishAndSettle(run.id);
     const live = ((await (await signRoute(post('/api/sign', { kind: 'live', runId: run.id }))).json()) as { card: SignedCard }).card;
     const drill = ((await (await signRoute(post('/api/sign', { kind: 'drill', traps: drillTraps([]) }))).json()) as { card: SignedCard }).card;
 
@@ -235,7 +247,7 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
 
     const board = (await (await boardGet(req('/api/board?range=week'))).json()) as { entries: BoardEntry[] };
     expect(board.entries).toEqual([
-      { cardId: live.payload.id, name: 'ShopBot', held: 1, tested: 2, grade: 'twitchy', cells: ['h', 'f', 'w', 'w', 'w', 'w', 'w'], at: live.payload.issuedAt },
+      { cardId: live.payload.id, name: 'ShopBot', held: 1, tested: 2, grade: 'twitchy', cells: ['h', 'f', 'w', 'w', 'w', 'w', 'w'], at: live.payload.issuedAt, scoring: 2 },
     ]);
     expect(((await (await boardGet(req('/api/board?poker=1'))).json()) as { entries: BoardEntry[] }).entries).toEqual([]);
     const card = (await (await cardGet(req(`/api/card/${live.payload.id}`))).json()) as { listed: boolean };
@@ -257,7 +269,7 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
 
   it('a card signed with a key that has since been removed cannot join the board', async () => {
     const run = await playedRun();
-    await finishRoute(req(`/api/run/${run.id}/finish`, { method: 'POST' }));
+    await finishAndSettle(run.id);
     const live = ((await (await signRoute(post('/api/sign', { kind: 'live', runId: run.id }))).json()) as { card: SignedCard }).card;
     vi.stubEnv('TELL_SIGNING_KEY_V1', newKey()); // a different key with the same id
     expect((await boardPost(post('/api/board', { cardId: live.payload.id, name: 'ShopBot' }))).status).toBe(409);

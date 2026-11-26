@@ -188,6 +188,11 @@ export function Lab() {
             </button>
           ))}
         </div>
+        <p className="small muted lab-mode-note" aria-live="polite">
+          {tab === 'live'
+            ? 'Tests your real agent on real pages. Tell\u2019s server witnesses what it does, so the card can join the board.'
+            : 'Gemini plays your agent from its system prompt, here in your browser. Good for fixing a prompt; the card is browser-reported and never ranked.'}
+        </p>
         <div id={`panel-${tab}`} role="tabpanel" aria-labelledby={`tab-${tab}`} className="lab-tabpanel">
           {tab === 'live' ? <LiveTest /> : (
             <Suspense fallback={<DrillLoadingFallback />}>

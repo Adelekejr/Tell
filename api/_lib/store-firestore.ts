@@ -8,14 +8,17 @@ import type { Store, StoredCard, StoredRun, Words } from './store.js';
 
 /**
  * Firestore layout (see PLAN 4.4):
- *   runs/{runId}              run metadata, no secret words (clients may `get` it)
+ *   runs/{runId}              run metadata, no secret words (server only; the
+ *                             run page reads it through GET /api/run/{id})
  *   runs/{runId}/hits/{hitId} canary hits and pasted-reply echoes
  *   runSecrets/{runId}        the seven secret words, server only
  *   cards/{cardId}            signed scorecards (kept; no expiry)
- *   board/{cardId}            opt-in board entries, live cards only
+ *   board/{cardId}            opt-in board entries, live cards only (kept)
  *   limits/{key_window}       rate-limit counters keyed by a salted IP hash
- * Every doc carries `expireAt` (a Timestamp) so a Firestore TTL policy can
- * delete it after the run ends.
+ * firestore.rules denies every browser read and write. Runs, hits,
+ * runSecrets and limits carry `expireAt` (a Timestamp); the TTL policies in
+ * firestore.indexes.json delete them after it passes (Firestore's TTL can lag
+ * by up to about a day). Cards and board entries have no `expireAt`.
  */
 export class FirestoreStore implements Store {
   readonly kind = 'firestore' as const;

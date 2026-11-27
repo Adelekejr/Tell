@@ -1,6 +1,5 @@
-# CI for Tell. Copy this file to .github/workflows/ci.yml to switch it on
-# (see "Quick start" in the README). Actions are pinned to full commit SHAs
-# and the workflow token is read-only.
+# CI for Tell: runs on every push to main and every pull request. Actions are
+# pinned to full commit SHAs and the workflow token is read-only.
 
 name: CI
 

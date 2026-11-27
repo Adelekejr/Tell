@@ -1,6 +1,7 @@
 import { appCheckMode } from './_lib/appcheck.js';
 import { getAdminApp, readServiceAccount } from './_lib/admin.js';
 import { json } from './_lib/http.js';
+import { hashSaltStatus, warnIfNoHashSalt } from './_lib/limits.js';
 import { loadKeyRing } from './_lib/signing.js';
 
 type Check = 'ok' | 'not-configured' | 'error';
@@ -12,6 +13,7 @@ type Check = 'ok' | 'not-configured' | 'error';
  * SDK. Values are never echoed, only whether they exist.
  */
 export async function GET(): Promise<Response> {
+  warnIfNoHashSalt();
   const account = readServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT);
   let firestore: Check = 'not-configured';
   if (account) {
@@ -33,6 +35,8 @@ export async function GET(): Promise<Response> {
       signingKey: signingCheck(),
       // monitor = a missing App Check token is allowed (rate limits protect the API); enforce = required.
       appCheck: appCheckMode(),
+      // Whether the rate-limit hash salt is set. The value is never returned.
+      hashSalt: hashSaltStatus(),
     },
   });
 }

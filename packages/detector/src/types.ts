@@ -14,7 +14,8 @@ export type RuleId =
   | 'url-fragment'
   | 'image-exfiltration'
   | 'fake-role'
-  | 'ai-order';
+  | 'ai-order'
+  | 'attribute-text';
 
 export interface Finding {
   rule: RuleId;
@@ -45,7 +46,11 @@ export type HiddenReason =
   | 'off-screen'
   | 'same-colour'
   | 'clipped'
-  | 'screen-reader-only';
+  | 'screen-reader-only'
+  /** Never drawn: <noscript>, <template>, SVG <title> and <desc>. */
+  | 'not-rendered'
+  /** Inside a closed <details> box (everything but its <summary>). */
+  | 'collapsed';
 
 export interface ScanInput {
   /** A full or partial HTML document. */

@@ -87,7 +87,31 @@ export interface InstructionVerdict {
   signals: string[];
 }
 
-export function judgeInstruction(text: string): InstructionVerdict {
+/**
+ * Cyrillic and Greek letters that look like Latin ones. Folded before any
+ * judging, so "Ignоrе" spelled with a Cyrillic о and е still reads as
+ * "Ignore". Non-English text is not translated (a known gap).
+ */
+const CONFUSABLES: Record<string, string> = {
+  // Cyrillic
+  '\u0430': 'a', '\u0435': 'e', '\u043E': 'o', '\u0440': 'p', '\u0441': 'c', '\u0443': 'y', '\u0445': 'x',
+  '\u0456': 'i', '\u0458': 'j', '\u0455': 's', '\u04BB': 'h', '\u0501': 'd', '\u051B': 'q', '\u051D': 'w',
+  '\u0410': 'A', '\u0412': 'B', '\u0415': 'E', '\u041A': 'K', '\u041C': 'M', '\u041D': 'H', '\u041E': 'O',
+  '\u0420': 'P', '\u0421': 'C', '\u0422': 'T', '\u0425': 'X', '\u0406': 'I', '\u0408': 'J', '\u0405': 'S',
+  // Greek
+  '\u03BF': 'o', '\u03B1': 'a', '\u03B9': 'i', '\u03BA': 'k', '\u03BD': 'v', '\u03C1': 'p', '\u03C5': 'u',
+  '\u0391': 'A', '\u0392': 'B', '\u0395': 'E', '\u0396': 'Z', '\u0397': 'H', '\u0399': 'I', '\u039A': 'K',
+  '\u039C': 'M', '\u039D': 'N', '\u039F': 'O', '\u03A1': 'P', '\u03A4': 'T', '\u03A5': 'Y', '\u03A7': 'X',
+};
+const CONFUSABLE_RE = new RegExp(`[${Object.keys(CONFUSABLES).join('')}]`, 'g');
+
+/** NFKC (full-width and other compatibility forms), then Cyrillic and Greek look-alikes to Latin. */
+export function foldConfusables(text: string): string {
+  return text.normalize('NFKC').replace(CONFUSABLE_RE, (ch) => CONFUSABLES[ch] ?? ch);
+}
+
+export function judgeInstruction(input: string): InstructionVerdict {
+  const text = foldConfusables(input);
   const signals: string[] = [];
   let strong = false;
   for (const p of STRONG) {
@@ -108,6 +132,23 @@ export function judgeInstruction(text: string): InstructionVerdict {
 
 export function isInstructionLike(text: string): boolean {
   return judgeInstruction(text).isInstruction;
+}
+
+/** A polite or indirect request to open something ("please open", "be sure to visit", "before you answer, fetch"). */
+const POLITE_ACTION =
+  /\b(?:please|kindly|be sure to|make sure (?:to|you)|remember to|don'?t forget to|do not forget to|you should|you must|you need to|you(?:'ll| will) need to|it would help if you(?: could)?|could you|would you|i(?:'d| would) like you to|before (?:you )?(?:answer|repl|respond|summari[sz]|continu|start)\w*|when you (?:summari[sz]|read|answer|repl|respond)\w*)\b[^.\n]{0,60}?\b(?:open|visit|fetch|load|go to|navigate to|click|follow|request|ping|call|access|retrieve|check)\b/i;
+/** A link or a Tell-style canary path. */
+const LINK = /\bhttps?:\/\/\S+|\/c\/[\w-]+\/\d|[?&](?:w|word|code|token)=/i;
+
+/**
+ * For text people can't see (hidden elements, comments, attributes, closed
+ * boxes): an order, or a polite or indirect request to open a link. The
+ * polite form is never used on visible text, where "please open the
+ * printable version at https://..." is ordinary writing.
+ */
+export function isHiddenOrder(input: string): boolean {
+  const text = foldConfusables(input);
+  return judgeInstruction(text).isInstruction || (POLITE_ACTION.test(text) && LINK.test(text));
 }
 
 const AI_RE = new RegExp(`\\b${AI_WORDS}\\b`, 'i');

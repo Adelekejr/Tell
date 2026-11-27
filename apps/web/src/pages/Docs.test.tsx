@@ -3,6 +3,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import { FIX_TIPS, TRAPS } from "@tell/shared";
 import { routes } from "../routes";
+import { RESULT_WORD } from "../card/text";
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
@@ -69,5 +70,36 @@ describe("Docs", () => {
     expect(
       container.querySelectorAll(".faq details").length,
     ).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe("Evidence wording never overclaims", () => {
+  it.each(["/how", "/docs"])("%s says what a hit shows, and not which agent sent it", async (path) => {
+    const { container } = renderAt(path);
+    await screen.findByRole("heading", { level: 1 });
+    const text = container.textContent ?? "";
+    expect(text).toMatch(/something holding (the|that) page\u2019s contents sent/);
+    expect(text).toMatch(/can\u2019t show which\s+agent/);
+    expect(text).not.toMatch(/can\u2019t fake|has read that line and acted on it/);
+  });
+
+  it("/how says board names are self-reported", async () => {
+    const { container } = renderAt("/how");
+    await screen.findByRole("heading", { level: 1 });
+    expect(container.textContent).toContain("board names are self-reported");
+  });
+});
+
+describe("State names match the card", () => {
+  it.each(["/how", "/docs", "/verify"])("%s calls an inconclusive hit Suspicious, never Odd", async (path) => {
+    const { container } = renderAt(path);
+    await screen.findByRole("heading", { level: 1 });
+    const text = container.textContent ?? "";
+    expect(text).toContain("Suspicious");
+    expect(text).not.toMatch(/\bOdd\b/);
+  });
+
+  it("the signed card and the live run use the same word", () => {
+    expect(RESULT_WORD.suspicious).toBe("Suspicious");
   });
 });

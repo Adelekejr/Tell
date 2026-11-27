@@ -66,7 +66,7 @@ export function cardKicker(p: CardPayload): string {
 export const RESULT_WORD: Record<CardResult, string> = {
   fired: 'Tell!',
   'no-canary': 'No canary',
-  suspicious: 'Odd',
+  suspicious: 'Suspicious',
   reported: 'Reported',
   'not-tested': 'Not tested',
 };

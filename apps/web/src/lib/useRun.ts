@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { RunView } from '@tell/shared';
 import { ApiError, getRun } from './api';
-import { initialRunState, runReducer } from './useRun-state';
+import type { PollClock } from './useRun-state';
+import { POLL_FAST_MS, initialRunState, nextPoll, runReducer, startPollClock, wakePollClock } from './useRun-state';
 
-const FAST_MS = 2000;
 const MAX_BACKOFF_MS = 15000;
 
 export interface RunState {
@@ -20,7 +20,9 @@ export interface RunState {
  * Polls GET /api/run/{id}. Chosen over a Firestore listener because the web
  * app never needs any Firestore access for runs: the server decides every
  * card and the browser only reads its verdicts. Polling pauses while the tab
- * is hidden and catches up the moment it is visible or back online.
+ * is hidden and catches up the moment it is visible or back online. It slows
+ * down when nothing changes (2 s, then 5 s after a quiet minute, then 15 s
+ * after five) and speeds up again on any change or user action.
  */
 export function useRun(id: string): RunState {
   const [state, dispatch] = useReducer(runReducer, undefined, initialRunState);
@@ -28,6 +30,7 @@ export function useRun(id: string): RunState {
   const live = useRef(true);
   const requestId = useRef(0);
   const tickRef = useRef<() => void>(() => {});
+  const clock = useRef<PollClock>(startPollClock(0));
 
   const schedule = useCallback((ms: number) => {
     if (timer.current !== null) window.clearTimeout(timer.current);
@@ -39,6 +42,7 @@ export function useRun(id: string): RunState {
     live.current = true;
     let failCount = 0;
     let controller: AbortController | null = null;
+    clock.current = startPollClock(Date.now());
     const effectRequest = ++requestId.current;
     dispatch({ type: 'request', requestId: effectRequest, phase: 'loading', preserveRun: false });
 
@@ -59,7 +63,9 @@ export function useRun(id: string): RunState {
         failCount = 0;
         dispatch({ type: 'success', requestId: currentRequest, run: next });
         // Open and closing runs still change; finished and expired ones are final.
-        if (next.status === 'open' || next.status === 'closing') schedule(FAST_MS);
+        const poll = nextPoll(clock.current, next, Date.now());
+        clock.current = poll.clock;
+        if (poll.delayMs !== null) schedule(poll.delayMs);
       } catch (err) {
         if (!live.current || (err instanceof Error && err.name === 'AbortError')) return;
         const e = err instanceof ApiError ? err : new ApiError('network', 'Couldn\u2019t reach the run.', 0);
@@ -69,12 +75,14 @@ export function useRun(id: string): RunState {
         }
         failCount += 1;
         dispatch({ type: 'failure', requestId: currentRequest, error: e, failures: failCount, showError: failCount >= 2 });
-        schedule(Math.min(FAST_MS * 2 ** failCount, MAX_BACKOFF_MS));
+        schedule(Math.min(POLL_FAST_MS * 2 ** failCount, MAX_BACKOFF_MS));
       }
     };
     tickRef.current();
     const wake = () => {
-      if (document.visibilityState === 'visible') tickRef.current();
+      if (document.visibilityState !== 'visible') return;
+      clock.current = wakePollClock(clock.current, Date.now());
+      tickRef.current();
     };
     document.addEventListener('visibilitychange', wake);
     window.addEventListener('online', wake);
@@ -88,8 +96,12 @@ export function useRun(id: string): RunState {
     };
   }, [id, schedule]);
 
-  const refresh = useCallback(() => tickRef.current(), []);
+  const refresh = useCallback(() => {
+    clock.current = wakePollClock(clock.current, Date.now());
+    tickRef.current();
+  }, []);
   const replace = useCallback((next: RunView) => {
+    clock.current = wakePollClock(clock.current, Date.now());
     const nextRequestId = ++requestId.current;
     dispatch({ type: 'replace', requestId: nextRequestId, run: next });
   }, []);

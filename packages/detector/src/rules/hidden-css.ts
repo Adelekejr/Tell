@@ -1,6 +1,6 @@
 import { hiddenBlocks } from '../html.js';
 import type { ParsedHtml } from '../html.js';
-import { judgeInstruction } from '../instruction.js';
+import { isHiddenOrder } from '../instruction.js';
 import type { Finding, HiddenReason } from '../types.js';
 import { excerpt } from '../util.js';
 
@@ -14,6 +14,8 @@ const HOW: Record<HiddenReason, string> = {
   'same-colour': 'coloured the same as its background',
   clipped: 'clipped away',
   'screen-reader-only': 'shown only to screen readers',
+  'not-rendered': 'in a part of the page that is never drawn (noscript, template or an SVG title)',
+  collapsed: 'inside a closed details box',
 };
 
 /** Tricks with no everyday reason to hide a long run of text. */
@@ -22,7 +24,7 @@ const DECEPTIVE: ReadonlySet<HiddenReason> = new Set(['transparent', 'zero-size'
 /** Would the hidden-text rule report this hidden block? Used to highlight exactly what the rule found. */
 export function flagsHiddenText(text: string, reason: HiddenReason): boolean {
   const t = text.trim();
-  return judgeInstruction(t).isInstruction || (DECEPTIVE.has(reason) && t.length >= 40);
+  return isHiddenOrder(t) || (DECEPTIVE.has(reason) && t.length >= 40);
 }
 
 /** Trap 1, Invisible Ink: text people can't see but an AI can read. */
@@ -30,8 +32,7 @@ export function hiddenCssRule(parsed: ParsedHtml): Finding[] {
   const findings: Finding[] = [];
   for (const block of hiddenBlocks(parsed)) {
     const text = block.text.trim();
-    const verdict = judgeInstruction(text);
-    if (verdict.isInstruction) {
+    if (isHiddenOrder(text)) {
       findings.push({
         rule: 'hidden-css',
         trap: 'invisible-ink',

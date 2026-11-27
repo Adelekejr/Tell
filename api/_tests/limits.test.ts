@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { clientIp, ipKey } from '../_lib/limits.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { LIMITS, MEMORY_LIMITS, allow, allowLocal, clientIp, ipKey, resetLocalLimitsForTests } from '../_lib/limits.js';
+import { MemoryStore } from '../_lib/store-memory.js';
 
 const r = (headers: Record<string, string>) => new Request('http://tell.test/api/x', { headers });
 
@@ -27,5 +28,36 @@ describe('clientIp: rate limits key on platform headers, not client claims', () 
     expect(k).toMatch(/^[0-9a-f]{24}$/);
     expect(k).not.toContain('9.9.9.9');
     expect(ipKey('9.9.9.9', Date.UTC(2026, 10, 27), 'salt')).not.toBe(k);
+  });
+});
+
+describe('run polling limit: counted in memory, never in the store', () => {
+  beforeEach(() => resetLocalLimitsForTests());
+
+  it('the view limit is a memory limit', () => {
+    expect(MEMORY_LIMITS.has('view')).toBe(true);
+    expect(LIMITS.view).toEqual({ limit: 3000, windowMs: 60 * 60 * 1000 });
+  });
+
+  it('allow() never calls store.take for view', async () => {
+    const store = new MemoryStore();
+    let takes = 0;
+    const orig = store.take.bind(store);
+    store.take = async (...args) => {
+      takes += 1;
+      return orig(...args);
+    };
+    for (let i = 0; i < 5; i += 1) expect(await allow(store, 'view', 'run1', 1000)).toBe(true);
+    expect(takes).toBe(0);
+    expect(await allow(store, 'runCreate', 'ip', 1000)).toBe(true);
+    expect(takes).toBe(1);
+  });
+
+  it('caps polls per run per window, and a new window starts fresh', () => {
+    const hour = LIMITS.view.windowMs;
+    for (let i = 0; i < LIMITS.view.limit; i += 1) expect(allowLocal('view', 'runA', 10)).toBe(true);
+    expect(allowLocal('view', 'runA', 10)).toBe(false);
+    expect(allowLocal('view', 'runB', 10)).toBe(true);
+    expect(allowLocal('view', 'runA', hour + 10)).toBe(true);
   });
 });

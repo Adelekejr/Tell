@@ -17,6 +17,10 @@ export function findingTitle(f: Finding): string {
           return 'Text clipped out of view';
         case 'screen-reader-only':
           return 'Text only screen readers get';
+        case 'not-rendered':
+          return 'Text the page never draws';
+        case 'collapsed':
+          return 'Text tucked inside a closed box';
         default:
           return 'Text switched off for people';
       }
@@ -42,6 +46,8 @@ export function findingTitle(f: Finding): string {
       return 'Text pretending to be a system message';
     case 'ai-order':
       return 'Orders aimed at AI assistants';
+    case 'attribute-text':
+      return 'Orders hidden in the page code';
   }
 }
 

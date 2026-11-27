@@ -1,4 +1,4 @@
-import { judgeInstruction, mentionsAI } from '../instruction.js';
+import { isHiddenOrder, mentionsAI } from '../instruction.js';
 import type { Finding } from '../types.js';
 import { excerpt } from '../util.js';
 
@@ -8,7 +8,7 @@ export function htmlCommentRule(comments: readonly string[]): Finding[] {
   for (const raw of comments) {
     const text = raw.trim();
     if (!text || /^\[if\b|^<!\[endif\]|^\[endif\]/i.test(text)) continue;
-    if (judgeInstruction(text).isInstruction) {
+    if (isHiddenOrder(text)) {
       findings.push({
         rule: 'html-comment',
         trap: 'whisper',

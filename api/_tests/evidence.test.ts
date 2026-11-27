@@ -9,7 +9,7 @@ import type { BoardEntry, CardPayload, CardTrap, LegacyCardPayload, LegacyCardTr
 import { WATCH_WINDOW_MS, TRAP_IDS, cardModel, cardTrap, isSignedCard, legacyScoreTraps, scoreTraps, v2ScoreTraps } from '../_lib/shared.js';
 import { getStore, resetStoreForTests } from '../_lib/store.js';
 import type { MemoryStore } from '../_lib/store-memory.js';
-import { GET as boardGet, POST as boardPost } from '../board.js';
+import { BOARD_CACHE, CARD_MEMO_MS, GET as boardGet, POST as boardPost, resetBoardMemoForTests } from '../board.js';
 import { GET as canary } from '../canary.js';
 import { POST as createRunRoute } from '../run.js';
 import { POST as finishRoute } from '../run-finish.js';
@@ -55,6 +55,7 @@ beforeEach(() => {
   vi.stubEnv('FIREBASE_SERVICE_ACCOUNT', '');
   vi.stubEnv('TELL_SIGNING_KEY_V1', newKey());
   resetStoreForTests();
+  resetBoardMemoForTests();
   vi.useFakeTimers({ toFake: ['Date'] });
   at(0);
 });
@@ -338,10 +339,45 @@ describe('the board re-verifies every entry on every read', () => {
     const forged = structuredClone(card);
     (forged.payload as CardPayload).agent = 'Swapped';
     store.seedCard({ card: forged, prompt: null, runId: null, listed: true });
+    // Cards are write-once, so a card that verified is reused for up to a
+    // minute; after that it is read and checked again.
+    vi.setSystemTime(Date.now() + CARD_MEMO_MS + 1);
     expect(await board()).toEqual([]);
     // Hidden for good, even if the card is put back.
     store.seedCard({ card, prompt: null, runId: null, listed: true });
     expect(await board()).toEqual([]);
+  });
+
+  it('the CDN may cache the public board briefly; errors are never cached', async () => {
+    const card = await liveRun(false);
+    expect((await join(card.payload.id)).status).toBe(201);
+    const res = await boardGet(req('/api/board?range=all', { headers: { origin: 'https://tell-b7c40.web.app' } }));
+    expect(res.headers.get('cache-control')).toBe(BOARD_CACHE);
+    expect(res.headers.get('vary')).toBe('Origin');
+    expect(res.headers.get('access-control-allow-origin')).toBe('https://tell-b7c40.web.app');
+    vi.stubEnv('TELL_DEV_STORE', '');
+    resetStoreForTests();
+    const down = await boardGet(req('/api/board'));
+    expect(down.status).toBe(503);
+    expect(down.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('reuses a verified card for a minute, then reads and checks it again', async () => {
+    const store = (await getStore()) as MemoryStore;
+    const card = await liveRun(false);
+    expect((await join(card.payload.id)).status).toBe(201);
+    let reads = 0;
+    const getCard = store.getCard.bind(store);
+    store.getCard = async (id) => {
+      reads += 1;
+      return getCard(id);
+    };
+    await board();
+    await board();
+    expect(reads).toBe(1);
+    vi.setSystemTime(Date.now() + CARD_MEMO_MS + 1);
+    expect(await board()).toHaveLength(1);
+    expect(reads).toBe(2);
   });
 
   it('hides an entry whose card is missing', async () => {
@@ -372,5 +408,35 @@ describe('clean control page', () => {
     expect(html).not.toMatch(/\/c\//);
     expect(html).not.toMatch(/display:\s*none|font-size:\s*1px|left:-10000px|<!--|[\u{E0000}-\u{E007F}]|ignore|instruction|system message|tool_result|base64/iu);
     expect(res.headers.get('x-robots-tag')).toContain('noindex');
+  });
+});
+
+describe('run secrets never leave the server', () => {
+  it('no response carries a secret word: run state, reply, sign, card or board', async () => {
+    const { GET: cardGet } = await import('../card.js');
+    const run = await newRun();
+    const w = await words(run.id);
+    for (const no of [1, 2, 3, 4, 5]) await read(run.id, no);
+    await hit(run.id, 2, `?w=${w.whisper}`);
+    await hit(run.id, 3, `?w=${w.whisper}`); // a real word on the wrong trap
+    await hit(run.id, 4);
+    const bodies: string[] = [JSON.stringify(await state(run.id))];
+    const other = await newRun();
+    const ow = await words(other.id);
+    for (const no of [1, 2, 3]) await read(other.id, no);
+    const replied = await reply(other.id, `I visited ${BASE}/c/${other.id}/7?w=${ow.impostor} as told.`);
+    bodies.push(await replied.text());
+    await close(run.id);
+    await close(other.id);
+    bodies.push(JSON.stringify(await state(run.id)), JSON.stringify(await state(other.id)));
+    const card = await signed(run.id);
+    const replyCard = await signed(other.id);
+    bodies.push(JSON.stringify(card), JSON.stringify(replyCard));
+    bodies.push(await (await cardGet(req(`/api/card/${card.payload.id}`))).text());
+    expect((await join(card.payload.id)).status).toBe(201);
+    bodies.push(JSON.stringify(await board()));
+    const all = bodies.join('\n');
+    expect(v3(card).traps.find((t) => t.trap === 'whisper')?.result).toBe('fired');
+    for (const secret of [...Object.values(w), ...Object.values(ow)]) expect(all).not.toContain(secret);
   });
 });

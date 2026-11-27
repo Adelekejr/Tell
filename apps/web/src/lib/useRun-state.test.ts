@@ -1,7 +1,16 @@
 import type { RunView } from '@tell/shared';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from './api';
-import { initialRunState, runReducer } from './useRun-state';
+import {
+  POLL_FAST_MS,
+  POLL_IDLE_MS,
+  POLL_SLOW_MS,
+  initialRunState,
+  nextPoll,
+  runReducer,
+  startPollClock,
+  wakePollClock,
+} from './useRun-state';
 
 function run(status: RunView['status']): RunView {
   return { status } as RunView;
@@ -38,5 +47,53 @@ describe('run state reducer', () => {
     const loading = runReducer(initialRunState(), { type: 'request', requestId: 1, phase: 'loading', preserveRun: false });
     const retrying = runReducer(loading, { type: 'request', requestId: 2, phase: 'retrying', preserveRun: false });
     expect(runReducer(retrying, { type: 'failure', requestId: 1, error: networkError, failures: 1, showError: false })).toBe(retrying);
+  });
+});
+
+describe('adaptive polling', () => {
+  const open = (extra: Partial<RunView> = {}): RunView => ({ status: 'open', cards: [], events: [], now: 0, ...extra }) as unknown as RunView;
+  const MIN = 60_000;
+
+  function quietFor(ms: number, step = 1000) {
+    let clock = startPollClock(0);
+    let delay: number | null = null;
+    for (let t = 0; t <= ms; t += step) ({ clock, delayMs: delay } = nextPoll(clock, open({ now: t }), t));
+    return { clock, delay };
+  }
+
+  it('polls every 2 s at first, 5 s after a quiet minute, 15 s after five quiet minutes', () => {
+    expect(quietFor(59_000).delay).toBe(POLL_FAST_MS);
+    expect(quietFor(MIN).delay).toBe(POLL_SLOW_MS);
+    expect(quietFor(5 * MIN - 1000).delay).toBe(POLL_SLOW_MS);
+    expect(quietFor(5 * MIN).delay).toBe(POLL_IDLE_MS);
+  });
+
+  it('the server clock alone is not a change', () => {
+    const { clock } = quietFor(6 * MIN);
+    expect(nextPoll(clock, open({ now: 999_999 }), 6 * MIN + 1000).delayMs).toBe(POLL_IDLE_MS);
+  });
+
+  it('a real change resets to 2 s', () => {
+    const { clock } = quietFor(6 * MIN);
+    const changed = open({ events: [{ kind: 'read' }] as unknown as RunView['events'] });
+    expect(nextPoll(clock, changed, 6 * MIN + 1000).delayMs).toBe(POLL_FAST_MS);
+  });
+
+  it('a user action, tab shown or back online resets to 2 s', () => {
+    const { clock } = quietFor(6 * MIN);
+    const woken = wakePollClock(clock, 6 * MIN + 500);
+    expect(nextPoll(woken, open(), 6 * MIN + 1000).delayMs).toBe(POLL_FAST_MS);
+  });
+
+  it('keeps polling fast while a card is being decided or the run is closing', () => {
+    const { clock } = quietFor(6 * MIN);
+    const reading = open({ cards: [{ state: 'waiting', reason: 'reading' }] as unknown as RunView['cards'] });
+    expect(nextPoll({ ...clock, fingerprint: null }, reading, 6 * MIN).delayMs).toBe(POLL_FAST_MS);
+    expect(nextPoll(clock, open({ status: 'closing' }), 6 * MIN).delayMs).toBe(POLL_FAST_MS);
+  });
+
+  it('stops for finished and expired runs', () => {
+    expect(nextPoll(startPollClock(0), open({ status: 'finished' }), 0).delayMs).toBeNull();
+    expect(nextPoll(startPollClock(0), open({ status: 'expired' }), 0).delayMs).toBeNull();
   });
 });

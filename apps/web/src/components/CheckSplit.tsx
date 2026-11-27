@@ -16,11 +16,27 @@ function Hidden({ piece }: { piece: Piece }) {
   );
 }
 
-function Reads({ p }: { p: Paragraph }) {
+export const STEER_NOTE = 'You can see this too, but an AI may take it as an order.';
+
+function Reads({ p, note }: { p: Paragraph; note: boolean }) {
   return (
-    <p>
-      {p.map((piece, i) => (piece.hidden ? <Hidden key={i} piece={piece} /> : <span key={i}>{piece.text}</span>))}
-    </p>
+    <>
+      {note ? <p className="split-note">{STEER_NOTE}</p> : null}
+      <p>
+        {p.map((piece, i) =>
+          piece.hidden ? (
+            <Hidden key={i} piece={piece} />
+          ) : piece.steer ? (
+            <mark key={i} className="ai-steer">
+              <span className="sr-only">Aimed at an AI: </span>
+              {piece.text}
+            </mark>
+          ) : (
+            <span key={i}>{piece.text}</span>
+          ),
+        )}
+      </p>
+    </>
   );
 }
 
@@ -43,6 +59,8 @@ export function CheckSplit({ view }: { view: CheckView }) {
   const [side, setSide] = useState<'see' | 'reads'>('reads');
   const { paragraphs, trimmed } = whole ? { paragraphs: view.paragraphs, trimmed: false } : focus(view.paragraphs);
   const canTrim = view.paragraphs.length > 14;
+  // The note goes once, above the first visible line aimed at an AI.
+  const firstSteer = paragraphs.findIndex((p) => p !== 'gap' && p.some((x) => x.steer && x.hidden === null));
   const gap = (i: number) => (
     <p key={`g${i}`} className="split-gap" aria-hidden="true">
       {'\u22EF'}
@@ -68,7 +86,7 @@ export function CheckSplit({ view }: { view: CheckView }) {
         <section className="split-col split-reads" aria-label="What your AI reads">
           <p className="label">Your AI reads</p>
           {view.title ? <p className="split-title">{view.title}</p> : null}
-          {paragraphs.map((p, i) => (p === 'gap' ? gap(i) : <Reads key={i} p={p} />))}
+          {paragraphs.map((p, i) => (p === 'gap' ? gap(i) : <Reads key={i} p={p} note={i === firstSteer} />))}
         </section>
       </div>
       {canTrim ? (

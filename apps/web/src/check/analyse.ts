@@ -4,9 +4,9 @@
  * shared detector); no model decides what is hidden.
  */
 import type { Finding, HiddenReason, ScanResult } from '@tell/detector';
-import { flagsComment, flagsHiddenText, parseHtml, scan, stripInvisible } from '@tell/detector';
+import { flagsAttribute, flagsComment, flagsHiddenText, parseHtml, scan, stripInvisible } from '@tell/detector';
 
-export type HiddenKind = HiddenReason | 'comment' | 'invisible-letters';
+export type HiddenKind = HiddenReason | 'comment' | 'invisible-letters' | 'attribute';
 
 export interface Piece {
   text: string;
@@ -16,6 +16,12 @@ export interface Piece {
   flagged: boolean;
   /** 1-based number of the flagged hidden line, for the reveal order. */
   n?: number;
+  /**
+   * Visible text that a rule says is written to give an AI orders (a fake
+   * system or tool message, "AI assistants: ..."). People can see it too, so
+   * it is never counted as hidden, but it is shown and marked.
+   */
+  steer?: boolean;
 }
 
 export type Paragraph = Piece[];
@@ -91,6 +97,39 @@ function number(paragraphs: Paragraph[]): number {
   return n;
 }
 
+/** Rules whose evidence is text people can see, but that is aimed at an AI. */
+const STEER_RULES = new Set<Finding['rule']>(['fake-role', 'ai-order']);
+const flat = (s: string) => s.replace(/\s+/g, ' ').trim();
+
+/**
+ * Marks the visible paragraphs a "steering" finding quotes, so the split can
+ * show and highlight them. Matching is on the finding's own excerpt, so only
+ * the text the rule actually quoted is marked.
+ */
+function markSteering(paragraphs: Paragraph[], findings: readonly Finding[]): void {
+  const spans: { start: number; end: number; p: number }[] = [];
+  let joined = '';
+  paragraphs.forEach((p, i) => {
+    const text = flat(p.filter((x) => x.hidden === null).map((x) => x.text).join(''));
+    if (!text) return;
+    if (joined) joined += ' ';
+    spans.push({ start: joined.length, end: joined.length + text.length, p: i });
+    joined += text;
+  });
+  for (const f of findings) {
+    if (!STEER_RULES.has(f.rule)) continue;
+    const quote = flat(f.evidence.replace(/\u2026$/, ''));
+    // The first 40 characters find the spot; the whole quote decides how far it runs.
+    const at = quote.length >= 12 ? joined.indexOf(quote.slice(0, 40)) : -1;
+    if (at < 0) continue;
+    const end = at + quote.length;
+    for (const s of spans) {
+      if (s.end <= at || s.start >= end) continue;
+      for (const piece of paragraphs[s.p] as Paragraph) if (piece.hidden === null) piece.steer = true;
+    }
+  }
+}
+
 function titleOf(html: string): string | null {
   const t = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? /<h1[^>]*>([\s\S]*?)<\/h1>/i.exec(html)?.[1];
   const clean = t?.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
@@ -151,6 +190,14 @@ export function analyseHtml(html: string, opts: { url?: string | null; source?: 
   // Comments in the page head or outside the body still count.
   const loose = comments.map((c, i) => ({ c: c.trim(), i })).filter(({ c, i }) => !placed.has(i) && c && flagsComment(c));
   if (loose.length) paragraphs.push(loose.map(({ c }) => ({ text: `<!-- ${c} --> `, hidden: 'comment' as const, flagged: true })));
+  // Orders in attributes (alt, title, meta, data-*) are shown at the end, as code.
+  const seenAttr = new Set<string>();
+  for (const a of parsed.attributes) {
+    const value = a.value.trim();
+    if (value.length < 12 || seenAttr.has(value) || !flagsAttribute(value)) continue;
+    seenAttr.add(value);
+    paragraphs.push([{ text: `<${a.tag} ${a.name}="${value}">`, hidden: 'attribute', flagged: true }]);
+  }
 
   const tidied = tidy(paragraphs);
   const hiddenLines = number(tidied);
@@ -159,6 +206,7 @@ export function analyseHtml(html: string, opts: { url?: string | null; source?: 
   // Most pages repeat their title as the main heading; show it once.
   if (title && first && (first === title || title.startsWith(first))) title = null;
   const result = scan({ html, ...(opts.url ? { url: opts.url } : {}) });
+  markSteering(tidied, result.findings);
   return {
     source: opts.source ?? 'link',
     url: opts.url ?? null,
@@ -175,6 +223,7 @@ export function analyseText(text: string): CheckView {
   const paragraphs = tidy(text.split(/\n/).map((line) => splitInvisible(line, null, false)));
   const hiddenLines = number(paragraphs);
   const result = scan({ text });
+  markSteering(paragraphs, result.findings);
   return { source: 'text', url: null, title: null, paragraphs, hiddenLines, findings: result.findings, scan: result };
 }
 
@@ -183,15 +232,21 @@ export function seenParagraphs(view: CheckView): Paragraph[] {
   return view.paragraphs.map((p) => p.filter((x) => x.hidden === null)).filter((p) => p.some((x) => x.text.trim()));
 }
 
+/** Paragraphs worth showing: flagged hidden text, or visible text aimed at an AI. */
+export function matters(p: Paragraph): boolean {
+  return p.some((x) => (x.flagged && x.hidden) || x.steer);
+}
+
 /**
  * Long pages are trimmed to the parts that matter: paragraphs with flagged
- * hidden text and one paragraph either side. Short pages show in full.
+ * hidden text or visible text aimed at an AI, and one paragraph either side.
+ * Short pages show in full.
  */
 export function focus(paragraphs: Paragraph[], keep = 14): { paragraphs: (Paragraph | 'gap')[]; trimmed: boolean } {
   if (paragraphs.length <= keep) return { paragraphs, trimmed: false };
   const hot = new Set<number>();
   paragraphs.forEach((p, i) => {
-    if (p.some((x) => x.flagged && x.hidden)) for (const j of [i - 1, i, i + 1]) if (j >= 0 && j < paragraphs.length) hot.add(j);
+    if (matters(p)) for (const j of [i - 1, i, i + 1]) if (j >= 0 && j < paragraphs.length) hot.add(j);
   });
   if (!hot.size) for (let i = 0; i < Math.min(keep, 8); i += 1) hot.add(i);
   const out: (Paragraph | 'gap')[] = [];

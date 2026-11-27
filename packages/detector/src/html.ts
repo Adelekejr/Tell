@@ -16,12 +16,21 @@ export interface ParsedLink {
   url: string;
 }
 
+/** A text-bearing attribute: alt, title, aria-*, placeholder, meta content or data-*. */
+export interface ParsedAttribute {
+  tag: string;
+  name: string;
+  value: string;
+}
+
 export interface ParsedHtml {
   segments: TextSegment[];
   comments: string[];
   links: ParsedLink[];
-  /** Text from alt, title and aria-label attributes. */
+  /** Text from alt, title, aria-*, placeholder, meta content and data-* attributes. */
   attributeText: string[];
+  /** The same attributes, with where they came from. */
+  attributes: ParsedAttribute[];
   /** Text people can see, with block breaks as newlines. */
   visibleText: string;
   /** Everything an AI reading the page could see. */
@@ -36,7 +45,10 @@ const BLOCK = new Set([
   'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre',
   'section', 'table', 'td', 'th', 'tr', 'ul', 'title',
 ]);
-const NOT_RENDERED = new Set(['head', 'meta', 'link', 'script', 'noscript', 'template', 'iframe', 'object']);
+const NOT_RENDERED = new Set(['head', 'meta', 'link', 'script', 'iframe', 'object']);
+/** Elements whose text is read by an agent but never drawn for people. */
+const NEVER_DRAWN = new Set(['noscript', 'template']);
+const SVG_TEXT = new Set(['title', 'desc']);
 const SR_ONLY_CLASSES = new Set(['sr-only', 'visually-hidden', 'screen-reader-text', 'screenreader-only', 'a11y-hidden']);
 
 const ENTITIES: Record<string, string> = {
@@ -71,6 +83,8 @@ interface Frame {
   hidden: HiddenReason | null;
   hiddenBy: number | null;
   bg: Rgba | null;
+  /** A closed <details>: the group id its hidden children share. */
+  closedDetails?: number;
 }
 
 const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'data', 'poster', 'cite']);
@@ -92,6 +106,7 @@ export function parseHtml(html: string): ParsedHtml {
   const comments: string[] = [];
   const links: ParsedLink[] = [];
   const attributeText: string[] = [];
+  const attributes: ParsedAttribute[] = [];
   const stack: Frame[] = [{ tag: '#root', hidden: null, hiddenBy: null, bg: null }];
   let nextHideId = 1;
 
@@ -100,6 +115,11 @@ export function parseHtml(html: string): ParsedHtml {
     if (!text) return;
     const f = top();
     if (NOT_RENDERED.has(f.tag) && f.hidden === null) return;
+    // Loose text straight inside a closed <details> is collapsed too.
+    if (f.hidden === null && f.closedDetails !== undefined && text.trim()) {
+      segments.push({ text, hidden: 'collapsed', hiddenBy: f.closedDetails });
+      return;
+    }
     segments.push({ text, hidden: f.hidden, hiddenBy: f.hiddenBy });
   };
 
@@ -129,9 +149,15 @@ export function parseHtml(html: string): ParsedHtml {
 
     for (const [name, value] of attrs) {
       if (URL_ATTRS.has(name) && value) links.push({ attr: name, tag, url: value.trim() });
-      if (TEXT_ATTRS.has(name) && value.trim()) attributeText.push(value);
+      if ((TEXT_ATTRS.has(name) || name.startsWith('data-')) && value.trim()) {
+        attributeText.push(value);
+        attributes.push({ tag, name, value });
+      }
     }
-    if (tag === 'meta' && attrs.get('content')) attributeText.push(attrs.get('content') ?? '');
+    if (tag === 'meta' && attrs.get('content')) {
+      attributeText.push(attrs.get('content') ?? '');
+      attributes.push({ tag, name: 'content', value: attrs.get('content') ?? '' });
+    }
     if (BLOCK.has(tag)) pushText('\n');
 
     // Raw-text elements: skip their bodies (style is already parsed).
@@ -159,11 +185,14 @@ export function parseHtml(html: string): ParsedHtml {
     }
     for (const [k, v] of parseDeclarations(attrs.get('style') ?? '')) decls.set(k, v);
 
+    const inSvg = stack.some((f) => f.tag === 'svg');
     const reason: HiddenReason | null = attrs.has('hidden')
       ? 'hidden-attribute'
-      : classes.some((c) => SR_ONLY_CLASSES.has(c))
-        ? 'screen-reader-only'
-        : hiddenReason(decls, parent.bg);
+      : NEVER_DRAWN.has(tag) || (inSvg && SVG_TEXT.has(tag))
+        ? 'not-rendered'
+        : classes.some((c) => SR_ONLY_CLASSES.has(c))
+          ? 'screen-reader-only'
+          : hiddenReason(decls, parent.bg);
 
     const frame: Frame = {
       tag,
@@ -174,7 +203,12 @@ export function parseHtml(html: string): ParsedHtml {
     if (parent.hidden === null && reason !== null) {
       frame.hidden = reason;
       frame.hiddenBy = nextHideId++;
+    } else if (parent.hidden === null && parent.closedDetails !== undefined && tag !== 'summary') {
+      // Everything in a closed <details> but its <summary> is collapsed.
+      frame.hidden = 'collapsed';
+      frame.hiddenBy = parent.closedDetails;
     }
+    if (tag === 'details' && !attrs.has('open') && frame.hidden === null) frame.closedDetails = nextHideId++;
 
     if (tag === 'img') {
       const alt = attrs.get('alt');
@@ -195,7 +229,7 @@ export function parseHtml(html: string): ParsedHtml {
   const allText = tidy(
     [segments.map((s) => s.text).join(''), ...comments, ...attributeText, ...links.map((l) => l.url)].join('\n'),
   );
-  return { segments, comments, links, attributeText, visibleText, allText };
+  return { segments, comments, links, attributeText, attributes, visibleText, allText };
 }
 
 /** Groups hidden segments by the element that hid them. */

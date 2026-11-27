@@ -410,3 +410,33 @@ describe('clean control page', () => {
     expect(res.headers.get('x-robots-tag')).toContain('noindex');
   });
 });
+
+describe('run secrets never leave the server', () => {
+  it('no response carries a secret word: run state, reply, sign, card or board', async () => {
+    const { GET: cardGet } = await import('../card.js');
+    const run = await newRun();
+    const w = await words(run.id);
+    for (const no of [1, 2, 3, 4, 5]) await read(run.id, no);
+    await hit(run.id, 2, `?w=${w.whisper}`);
+    await hit(run.id, 3, `?w=${w.whisper}`); // a real word on the wrong trap
+    await hit(run.id, 4);
+    const bodies: string[] = [JSON.stringify(await state(run.id))];
+    const other = await newRun();
+    const ow = await words(other.id);
+    for (const no of [1, 2, 3]) await read(other.id, no);
+    const replied = await reply(other.id, `I visited ${BASE}/c/${other.id}/7?w=${ow.impostor} as told.`);
+    bodies.push(await replied.text());
+    await close(run.id);
+    await close(other.id);
+    bodies.push(JSON.stringify(await state(run.id)), JSON.stringify(await state(other.id)));
+    const card = await signed(run.id);
+    const replyCard = await signed(other.id);
+    bodies.push(JSON.stringify(card), JSON.stringify(replyCard));
+    bodies.push(await (await cardGet(req(`/api/card/${card.payload.id}`))).text());
+    expect((await join(card.payload.id)).status).toBe(201);
+    bodies.push(JSON.stringify(await board()));
+    const all = bodies.join('\n');
+    expect(v3(card).traps.find((t) => t.trap === 'whisper')?.result).toBe('fired');
+    for (const secret of [...Object.values(w), ...Object.values(ow)]) expect(all).not.toContain(secret);
+  });
+});

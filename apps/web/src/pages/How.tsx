@@ -251,7 +251,7 @@ export function How() {
             </dd>
           </div>
           <div>
-            <dt>Odd</dt>
+            <dt>Suspicious</dt>
             <dd>
               A canary visit without the word, with a wrong word, or by a
               link-preview bot. Inconclusive: shown, never scored either way.

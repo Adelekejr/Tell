@@ -219,9 +219,9 @@ export function Docs() {
               agent, obeying the hidden line; Tell can{"\u2019"}t show which
               agent). <b>No canary</b> means the page was fetched
               and nothing fired for a full minute: clean, but inconclusive.{" "}
-              <b>Odd</b> (a visit without the word, a wrong word or a preview
+              <b>Suspicious</b> (a visit without the word, a wrong word or a preview
               bot) is inconclusive. <b>Reported</b> means the secret word turned
-              up in a reply you pasted: shown, not witnessed. Odd, Reported and
+              up in a reply you pasted: shown, not witnessed. Suspicious, Reported and
               Not tested are all left out of the count. See{" "}
               <Link to="/traps">the traps</Link> for what each one tests.
             </dd>

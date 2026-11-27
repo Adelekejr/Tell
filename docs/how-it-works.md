@@ -22,7 +22,7 @@ All AI goes through [`apps/web/src/ai/hybrid.ts`](../apps/web/src/ai/hybrid.ts):
 - `ONLY_ON_DEVICE` and `ONLY_IN_CLOUD` instances for the Nano vs Cloud comparison.
 - `initializeDeviceModel()` runs only when you press **Enable on-device AI**.
 - `response.inferenceSource` drives the On-device / Cloud badge.
-- The web app attaches App Check (reCAPTCHA v3) tokens to AI Logic requests. Enforcement on the AI Logic API is currently off, so this is not yet a protection. The API checks App Check in monitor mode; see the README's App Check status.
+- The web app attaches App Check (reCAPTCHA v3) tokens to AI Logic requests. Enforcement for the Firebase AI Logic API (`firebaseml`) is a Firebase console setting and is currently off, so this is not yet a protection. Tell's own Vercel API is a separate check: `TELL_APPCHECK` sets it, and it runs in monitor mode (a present token must be valid; a missing one is allowed). See the README's App Check status.
 
 ## The detector
 
@@ -67,7 +67,7 @@ For everyone, at `/check`: paste a link or some text and see **You see** next to
 
 ## Signing and the board
 
-Cards are signed over `tell-card-v2` and record each trap's evidence basis. The board accepts only live, server-witnessed cards with at least one valid test, and re-checks older entries when it is read. See [signing.md](signing.md).
+New cards are v3, signed over `tell-card-v3`, and record each trap's evidence basis; v1 and v2 cards still verify over their own contexts. The board accepts only live, server-witnessed cards with at least 3 traps fetched and fully watched. It re-verifies every entry's signature and rebuilds it from the signed card under today's rules. `GET /api/board` is cached at the CDN for 30 seconds (served stale for up to 60 more while it refreshes), and each verified card is kept in memory for up to 60 seconds, so a hidden entry can take about a minute and a half to disappear. See [signing.md](signing.md).
 
 ## The board
 

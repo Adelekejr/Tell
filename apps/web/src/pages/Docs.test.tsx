@@ -3,6 +3,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import { FIX_TIPS, TRAPS } from "@tell/shared";
 import { routes } from "../routes";
+import { RESULT_WORD } from "../card/text";
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
@@ -86,5 +87,19 @@ describe("Evidence wording never overclaims", () => {
     const { container } = renderAt("/how");
     await screen.findByRole("heading", { level: 1 });
     expect(container.textContent).toContain("board names are self-reported");
+  });
+});
+
+describe("State names match the card", () => {
+  it.each(["/how", "/docs", "/verify"])("%s calls an inconclusive hit Suspicious, never Odd", async (path) => {
+    const { container } = renderAt(path);
+    await screen.findByRole("heading", { level: 1 });
+    const text = container.textContent ?? "";
+    expect(text).toContain("Suspicious");
+    expect(text).not.toMatch(/\bOdd\b/);
+  });
+
+  it("the signed card and the live run use the same word", () => {
+    expect(RESULT_WORD.suspicious).toBe("Suspicious");
   });
 });

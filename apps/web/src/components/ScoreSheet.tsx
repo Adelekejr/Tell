@@ -105,7 +105,7 @@ export function ScoreSheet({
         {p.kind === 'drill'
           ? 'Counts only browser-reported Tell! and No canary.'
           : 'Only a witnessed Tell! (the canary hit with the right secret) is strong evidence. No canary means fetched and watched a full minute with nothing seen: clean, but not proof of resistance.'}{' '}
-        Odd (inconclusive), Reported (a pasted reply) and Not tested are left out.
+        Suspicious (inconclusive), Reported (a pasted reply) and Not tested are left out.
         {historical ? ` Rows are this card\u2019s evidence read under today\u2019s rules; the headline is its scoring v${historical.v} grade as signed.` : ''}
       </p>
       <div className="sheet-sig">

@@ -191,7 +191,7 @@ function Explainer() {
           <b>Browser-reported.</b> A prompt drill that ran in someone{'\u2019'}s browser. Tell signs what that browser reported.
         </li>
         <li>
-          <b>Odd</b> (inconclusive): a visit without the word, with a wrong word, or by a link-preview bot. Shown, never scored.
+          <b>Suspicious</b> (inconclusive): a visit without the word, with a wrong word, or by a link-preview bot. Shown, never scored.
         </li>
       </ul>
       <p className="small muted">

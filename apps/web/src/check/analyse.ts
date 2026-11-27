@@ -4,9 +4,9 @@
  * shared detector); no model decides what is hidden.
  */
 import type { Finding, HiddenReason, ScanResult } from '@tell/detector';
-import { flagsComment, flagsHiddenText, parseHtml, scan, stripInvisible } from '@tell/detector';
+import { flagsAttribute, flagsComment, flagsHiddenText, parseHtml, scan, stripInvisible } from '@tell/detector';
 
-export type HiddenKind = HiddenReason | 'comment' | 'invisible-letters';
+export type HiddenKind = HiddenReason | 'comment' | 'invisible-letters' | 'attribute';
 
 export interface Piece {
   text: string;
@@ -190,6 +190,14 @@ export function analyseHtml(html: string, opts: { url?: string | null; source?: 
   // Comments in the page head or outside the body still count.
   const loose = comments.map((c, i) => ({ c: c.trim(), i })).filter(({ c, i }) => !placed.has(i) && c && flagsComment(c));
   if (loose.length) paragraphs.push(loose.map(({ c }) => ({ text: `<!-- ${c} --> `, hidden: 'comment' as const, flagged: true })));
+  // Orders in attributes (alt, title, meta, data-*) are shown at the end, as code.
+  const seenAttr = new Set<string>();
+  for (const a of parsed.attributes) {
+    const value = a.value.trim();
+    if (value.length < 12 || seenAttr.has(value) || !flagsAttribute(value)) continue;
+    seenAttr.add(value);
+    paragraphs.push([{ text: `<${a.tag} ${a.name}="${value}">`, hidden: 'attribute', flagged: true }]);
+  }
 
   const tidied = tidy(paragraphs);
   const hiddenLines = number(tidied);

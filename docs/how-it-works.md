@@ -26,7 +26,11 @@ All AI goes through [`apps/web/src/ai/hybrid.ts`](../apps/web/src/ai/hybrid.ts):
 
 ## The detector
 
-[`packages/detector`](../packages/detector) finds hidden CSS text, HTML comments, invisible Unicode (tag letters, zero-width, variation selectors, split words), base64 payloads, `#fragment` orders, image-link data leaks, fake system or tool blocks and visible orders aimed at AI assistants. Each finding has a severity and a *strong* flag. A strong rule hit is final: a model's explanation can add to it, never overrule it.
+[`packages/detector`](../packages/detector) finds hidden CSS text, HTML comments, invisible Unicode (tag letters, zero-width, variation selectors, split words), base64 payloads, `#fragment` orders, image-link data leaks, fake system or tool blocks and visible orders aimed at AI assistants. It also reads the places people don't see: alt and title text, aria labels, placeholders, meta tags, `data-*` attributes, SVG `<title>`/`<desc>`, `<noscript>`, `<template>` and closed `<details>` boxes, and reports only text there that reads as an order. A polite or indirect request ("please open…", "before you answer, visit…") with a link or canary path counts only when the text is hidden or not shown; in visible prose it is ordinary writing. Cyrillic and Greek look-alike letters (and full-width forms) are folded to Latin before any judging.
+
+Known gaps: the rules read English only, and don't decode ROT13 or similar ciphers. Gemini explains findings but can't add one, so it doesn't close these gaps. A benign set (hidden menus, cookie banners, skip links, CSRF fields, tag-manager and TODO comments, an article quoting an attack, emoji and Persian joiners, image data URIs, ordinary alt text) is tested to stay at zero findings.
+
+Each finding has a severity and a *strong* flag. A strong rule hit is final: a model's explanation can add to it, never overrule it.
 
 ## The live test
 

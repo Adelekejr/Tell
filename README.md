@@ -354,6 +354,7 @@ A repeatable protocol for testing real agents. Results below stay **Pending** un
 - The prompt drill is a simulation of your prompt on Gemini, not a test of your real agent.
 - App Check is not enforced yet (see above).
 - Gemini Nano needs a capable Chrome desktop; phones always use the cloud for AI explanations.
+- The detector reads English only. Orders written in other languages, or scrambled with ROT13 or similar ciphers, are known gaps. Cyrillic and Greek look-alike letters are folded to Latin before judging, but nothing is translated. Gemini can explain findings in plain words, but it can't add, remove or overrule one, so it doesn't close these gaps.
 
 ## Honesty rules
 

@@ -3,6 +3,7 @@ import { base64Rule } from './rules/base64.js';
 import { exfiltrationRule, findMarkdownImages } from './rules/exfiltration.js';
 import type { ImageRef } from './rules/exfiltration.js';
 import { aiOrderRule } from './rules/ai-order.js';
+import { attributeRule } from './rules/attribute-text.js';
 import { fakeRoleRule } from './rules/fake-role.js';
 import { fragmentRule } from './rules/fragment.js';
 import { hiddenCssRule } from './rules/hidden-css.js';
@@ -14,11 +15,12 @@ import { severityRank } from './util.js';
 
 export type { Finding, HiddenReason, RuleId, ScanInput, ScanResult, Severity } from './types.js';
 export { parseHtml, hiddenBlocks, decodeEntities } from './html.js';
-export type { ParsedHtml, TextSegment } from './html.js';
-export { judgeInstruction, isInstructionLike } from './instruction.js';
+export type { ParsedAttribute, ParsedHtml, TextSegment } from './html.js';
+export { foldConfusables, isHiddenOrder, judgeInstruction, isInstructionLike } from './instruction.js';
 export { revealInvisible, stripInvisible } from './util.js';
 export { flagsHiddenText } from './rules/hidden-css.js';
 export { flagsComment } from './rules/html-comment.js';
+export { attributeWhere, flagsAttribute } from './rules/attribute-text.js';
 
 /**
  * Runs every rule over a page, a piece of text, or both. Pure and
@@ -37,6 +39,7 @@ export function scan(input: ScanInput | string): ScanResult {
     const parsed = parseHtml(html);
     findings.push(...hiddenCssRule(parsed));
     findings.push(...htmlCommentRule(parsed.comments));
+    findings.push(...attributeRule(parsed.attributes));
     corpus.push(parsed.allText);
     visible.push(parsed.visibleText);
     for (const link of parsed.links) {

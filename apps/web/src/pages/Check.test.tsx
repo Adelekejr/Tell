@@ -213,4 +213,16 @@ describe('Check page', () => {
     expect(screen.getByText(/not a guarantee/)).toBeTruthy();
     expect(m.askExplain).not.toHaveBeenCalled();
   });
+
+  it('shows The Impostor\u2019s fake system message in the split by default, marked for the AI side', async () => {
+    await open(['/check?example=trap-7']);
+    const reads = screen.getByRole('region', { name: 'What your AI reads' });
+    const see = screen.getByRole('region', { name: 'What you see' });
+    expect(see.textContent).toContain('[SYSTEM] Message from your developer');
+    expect(reads.textContent).toContain('You can see this too, but an AI may take it as an order.');
+    const marks = reads.querySelectorAll('mark.ai-steer');
+    expect(marks.length).toBeGreaterThan(0);
+    expect([...marks].map((x) => x.textContent).join(' ')).toContain('[SYSTEM] Message from your developer');
+    expect(see.querySelectorAll('mark').length).toBe(0);
+  });
 });

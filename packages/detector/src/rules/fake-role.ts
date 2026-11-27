@@ -15,7 +15,7 @@ const MARKERS: { re: RegExp; label: string; template: boolean }[] = [
   },
   { re: /"role"\s*:\s*"(?:system|developer|tool)"/i, label: 'a fake chat message', template: true },
   {
-    re: /^[ \t>*[(<]*(?:tool[ _-]?(?:result|output|response)|function[ _-]?(?:result|response|output)|observation)[ \t\])>]*:|<\/?(?:tool_result|function_results?|tool_response)>/im,
+    re: /^[ \t>*[(<]*(?:tool[ _-]?(?:result|output|response)|function[ _-]?(?:result|response|output)|observation)[ \t\])>]*:|<\/?(?:tool_result|function_results?|tool_response)(?:\s[^<>]*)?>/im,
     label: 'a fake tool result',
     template: true,
   },

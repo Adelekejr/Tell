@@ -39,6 +39,7 @@ describe('Try it (/try)', () => {
     expect(screen.getByRole('link', { name: /Open the sample card/ }).getAttribute('href')).toBe('/card/sample');
     expect(screen.getByRole('link', { name: /Check its signature/ }).getAttribute('href')).toBe('/v/sample');
     expect(screen.getAllByText('Sample').length).toBeGreaterThan(0);
+    expect(screen.getByText('Fired 3 of 6 traps fetched · 1 inconclusive')).toBeTruthy();
   });
 
   it('one tap opens a known-bad example with the rules\u2019 result, labelled as an example, with no AI', async () => {
@@ -104,6 +105,9 @@ describe('the sample scorecard', () => {
     expect(screen.getByRole('link', { name: 'Check its signature' }).getAttribute('href')).toBe('/v/sample');
     expect(screen.getByText(/\/v\/sample$/)).toBeTruthy();
     expect(screen.getByText('Prompt on this card')).toBeTruthy();
+    expect(screen.getByText(/Fired 3 of 6 traps fetched · 1 inconclusive:/).textContent).toBe(
+      'Fired 3 of 6 traps fetched · 1 inconclusive: The Whisper, The Hashtag and The Impostor.',
+    );
     expect(api.getCard).not.toHaveBeenCalled();
   });
 

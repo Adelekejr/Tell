@@ -1,5 +1,5 @@
 import type { CardPayload, HistoricalScore } from '@tell/shared';
-import { DEMO_KID, cardSummary } from '@tell/shared';
+import { DEMO_KID, cardSummary, scoreCountLine } from '@tell/shared';
 import { Fragment } from 'react';
 import type { Check } from '../card/useVerifiedCard';
 import { BASIS_TAG, EVIDENCE_TEXT, RESULT_WORD, cardKicker, historicalGrade, historicalLine, outcomeLabel, trapName } from '../card/text';
@@ -13,7 +13,7 @@ function Summary({ p, historical }: { p: CardPayload; historical: HistoricalScor
   if (!fallen.length || reported.length) return <p className="sheet-summary">{cardSummary(p, trapName)}</p>;
   return (
     <p className="sheet-summary">
-      Fired {p.score.fired} of {p.score.observed} {p.kind === 'drill' ? 'traps tried' : 'traps fetched'}:{' '}
+      {scoreCountLine(p.score, p.kind === 'drill' ? 'traps tried' : 'traps fetched')}:{' '}
       {fallen.map((name, i) => (
         <Fragment key={name}>
           {i > 0 ? (i === fallen.length - 1 ? ' and ' : ', ') : null}

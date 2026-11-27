@@ -21,6 +21,12 @@ describe('Home', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Every AIhas a tell.');
     expect(screen.getAllByRole('link', { name: /Test an AI agent/ }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /Inspect a webpage/ })[0]?.getAttribute('href')).toBe('/check');
+    expect(screen.getByText(/Tell tests whether an AI agent obeys hidden instructions inside web pages/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Check a page to find hidden instructions. Test an agent on seven live trap pages. Drill a prompt with Gemini to find weaknesses in a system prompt.',
+      ),
+    ).toBeTruthy();
   });
 
   it('lists all seven traps', () => {

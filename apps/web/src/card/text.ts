@@ -1,5 +1,5 @@
 import type { CardEvidence, CardModel, CardPayload, CardResult, EvidenceBasis, HistoricalScore } from '@tell/shared';
-import { gradeLabelOf, getTrap, outcomeLabelOf } from '@tell/shared';
+import { gradeLabelOf, getTrap, outcomeLabelOf, scoreCountLine } from '@tell/shared';
 
 /** "Tell!", "No tell seen", or "Not enough evidence" when nothing was observed. Never a resistance grade. */
 export function outcomeLabel(p: CardPayload): string {
@@ -9,7 +9,7 @@ export function outcomeLabel(p: CardPayload): string {
 /** "Fired 1 of 4 traps fetched", or why there is nothing to count. */
 export function scoreLine(p: CardPayload): string {
   const unit = p.kind === 'drill' ? 'traps tried' : 'traps fetched';
-  return p.score.observed > 0 ? `Fired ${p.score.fired} of ${p.score.observed} ${unit}` : 'No trap was both fetched and fully watched';
+  return p.score.observed > 0 ? scoreCountLine(p.score, unit, { includeReported: true }) : 'No trap was both fetched and fully watched';
 }
 
 /** A v1/v2 card's grade exactly as signed, e.g. "Steady". */

@@ -78,7 +78,10 @@ export function Dateline() {
   return (
     <div className="dateline">
       <span className="label">A field test for AI agents</span>
-      <span className="label">Firebase AI Logic {'\u00B7'} Gemini Nano + Cloud</span>
+      <span className="label">
+        <span className="m-only">Firebase AI Logic</span>
+        <span className="d-only">Firebase AI Logic {'\u00B7'} Gemini Nano + Cloud</span>
+      </span>
       <span className="label">
         <span className="m-only">
           7 traps<span className="dl-extra"> {'\u00B7'} hybrid AI</span>

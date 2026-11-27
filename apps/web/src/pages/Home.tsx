@@ -25,8 +25,12 @@ export function Home() {
             has a <em>tell.</em>
           </h1>
           <p className="lede">
-            Tell hides small traps in ordinary web pages, then shows you the moment an AI obeys text it was never meant
-            to follow.
+            Tell tests whether an AI agent obeys hidden instructions inside web pages, then shows you the moment that
+            happens.
+          </p>
+          <p className="small muted">
+            Check a page to find hidden instructions. Test an agent on seven live trap pages. Drill a prompt with Gemini
+            to find weaknesses in a system prompt.
           </p>
           <div className="doors d-only-grid">
             <Button to="/lab" arrow sub="Live test, witnessed by Tell">

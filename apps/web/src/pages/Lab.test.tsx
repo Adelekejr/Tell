@@ -22,6 +22,16 @@ afterEach(() => {
 });
 
 describe('Lab', () => {
+  it('says a live test needs a browsing agent and stays Waiting otherwise', async () => {
+    renderLab();
+    expect(await screen.findByRole('button', { name: /Start a live test/ })).toBeTruthy();
+    expect(
+      screen.getByText(
+        /This test needs an AI agent or workflow that can open webpages\. Starting the test alone will not produce a result; the cards stay Waiting until an agent visits the links\./,
+      ),
+    ).toBeTruthy();
+  });
+
   it('starts a live test and shows the copyable task', async () => {
     api.createRun.mockResolvedValue({ id: ID, label: 'R-BBBB', task, expiresAt: Date.now() + 86_400_000 });
     renderLab();

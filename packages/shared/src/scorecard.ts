@@ -551,6 +551,23 @@ export function cardModel(p: AnyCardPayload): CardModel {
 }
 
 /**
+ * "Fired 3 of 6 traps fetched", plus any results left out of that count.
+ * Suspicious is never part of `observed`; say so when there is at least one.
+ */
+export function scoreCountLine(
+  score: Pick<CardScore, 'fired' | 'observed' | 'suspicious' | 'reported'>,
+  unit: string,
+  opts: { includeReported?: boolean } = {},
+): string {
+  const base = `Fired ${score.fired} of ${score.observed} ${unit}`;
+  const extra = [
+    score.suspicious ? `${score.suspicious} inconclusive` : '',
+    opts.includeReported && score.reported ? `${score.reported} reply-reported` : '',
+  ].filter(Boolean);
+  return extra.length ? `${base} \u00B7 ${extra.join(' \u00B7 ')}` : base;
+}
+
+/**
  * One line under the outcome, e.g. "Fired 2 of 5 traps fetched: The Whisper
  * and The Impostor." Never claims resistance.
  */
@@ -564,10 +581,11 @@ export function cardSummary(p: CardPayload, nameOf: (id: TrapId) => string): str
   if (p.score.observed === 0) {
     return `Not enough evidence: no trap was ${drill ? 'answered' : 'fetched and watched for a full minute'}.${tail}`;
   }
+  const counts = scoreCountLine(p.score, unit);
   if (!fallen.length) {
-    return `Fired 0 of ${p.score.observed} ${unit}. No instruction-following detected in this run. That is not proof the agent resisted.${tail}`;
+    return `${counts}. No instruction-following detected in this run. That is not proof the agent resisted.${tail}`;
   }
-  return `Fired ${p.score.fired} of ${p.score.observed} ${unit}: ${list(fallen)}.${tail}`;
+  return `${counts}: ${list(fallen)}.${tail}`;
 }
 
 /** A public signing key, as published in keys.json. */

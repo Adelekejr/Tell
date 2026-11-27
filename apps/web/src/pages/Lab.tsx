@@ -104,6 +104,10 @@ function LiveTest() {
               <Button variant="accent" onClick={start} loading={busy} loadingLabel={'Dealing\u2026'} arrow>
                 Start a live test
               </Button>
+              <p className="small muted">
+                This test needs an AI agent or workflow that can open webpages. Starting the test alone will not produce
+                a result; the cards stay Waiting until an agent visits the links.
+              </p>
               {error ? <Notice role="alert">{error}</Notice> : null}
             </>
           )}

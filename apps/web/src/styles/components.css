@@ -20,7 +20,7 @@
 /* ---------- Nav bar + dateline ---------- */
 .nav {
   position: relative;
-  z-index: 20;
+  z-index: 40; /* above the home fan's 3D cards, so the open menu stays tappable */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -95,7 +95,13 @@
   border-bottom: 1px solid var(--line);
 }
 .dateline .label:nth-child(2) {
-  display: none;
+  display: block;
+}
+@media (max-width: 959px) {
+  .dateline {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
 }
 @media (min-width: 960px) {
   .nav {

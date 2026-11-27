@@ -32,11 +32,20 @@
       ]
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api/((?!board$).*)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/api/board",
+      "headers": [
+        {
+          "key": "Vary",
+          "value": "Origin"
         }
       ]
     },

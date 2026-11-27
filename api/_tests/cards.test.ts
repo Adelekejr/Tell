@@ -5,7 +5,7 @@ import { loadKeyRing, signPayload, verifySigned } from '../_lib/signing.js';
 import type { BoardEntry, CardTrap, RunView, SignedCard } from '../_lib/shared.js';
 import { WATCH_WINDOW_MS, RUN_TTL_MS, SAMPLE_CARD, TRAP_IDS, canonicalJson, cardTrap, isSignedCard, scoreTraps } from '../_lib/shared.js';
 import { getStore, resetStoreForTests } from '../_lib/store.js';
-import { GET as boardGet, POST as boardPost } from '../board.js';
+import { GET as boardGet, POST as boardPost, resetBoardMemoForTests } from '../board.js';
 import { GET as cardGet } from '../card.js';
 import { GET as keysGet } from '../keys.js';
 import { GET as canary } from '../canary.js';
@@ -130,6 +130,7 @@ describe('sign, card, keys and board endpoints (dev store)', () => {
     vi.stubEnv('FIREBASE_SERVICE_ACCOUNT', '');
     vi.stubEnv('TELL_SIGNING_KEY_V1', newKey());
     resetStoreForTests();
+    resetBoardMemoForTests();
   });
   afterEach(() => {
     vi.useRealTimers();

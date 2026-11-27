@@ -4,7 +4,7 @@ import { json, readJson } from './_lib/http.js';
 import { isCardId } from './_lib/ids.js';
 import { allow, clientIp, ipKey } from './_lib/limits.js';
 import { loadKeyRing, verifySigned } from './_lib/signing.js';
-import type { BoardEntry, BoardRange } from './_lib/shared.js';
+import type { BoardEntry, BoardRange, SignedCard } from './_lib/shared.js';
 import { BOARD_PAGE, BOARD_REFUSAL, BOARD_SCORING, boardEligibility, boardEntryFrom, checkAgentName, rankBoard, reconcileBoardEntry } from './_lib/shared.js';
 import type { Store } from './_lib/store.js';
 import { getStore } from './_lib/store.js';
@@ -13,20 +13,55 @@ import { getStore } from './_lib/store.js';
 const SCAN = 500;
 
 /**
- * Every read rebuilds every entry from its signed card: the signature is
+ * The CDN may serve the same board to everyone for 30 s, and a stale copy for
+ * 60 s more while it refreshes. The board is public, and the same for every
+ * caller; Vary: Origin (from withCors) keeps each origin's CORS headers apart.
+ */
+export const BOARD_CACHE = 'public, s-maxage=30, stale-while-revalidate=60';
+
+/** How long a card that passed signature checks is reused without reading it again. */
+export const CARD_MEMO_MS = 60_000;
+const memo = new Map<string, { card: SignedCard; payload: SignedCard['payload']; at: number }>();
+const MEMO_MAX = 2000;
+
+/**
+ * A signed card that verified in the last minute, from this instance's
+ * memory. Cards are write-once, so this only saves reads; anything that
+ * fails is never remembered and is re-checked on the next read.
+ */
+async function verifiedCard(store: Store, cardId: string, ring: ReturnType<typeof loadKeyRing>, now: number) {
+  const hit = memo.get(cardId);
+  if (hit && now - hit.at < CARD_MEMO_MS) return { card: hit.card, trusted: hit.payload };
+  memo.delete(cardId);
+  const card = (await store.getCard(cardId))?.card ?? null;
+  const trusted = card && verifySigned(card, ring) ? card.payload : null;
+  if (card && trusted) {
+    if (memo.size >= MEMO_MAX) memo.delete(memo.keys().next().value as string);
+    memo.set(cardId, { card, payload: trusted, at: now });
+  }
+  return { card, trusted };
+}
+
+/** Tests only. */
+export function resetBoardMemoForTests(): void {
+  memo.clear();
+}
+
+/**
+ * Every read rebuilds every entry from its signed card (a card that verified
+ * in the last minute is reused from memory): the signature is
  * checked against Tell's keys and eligibility is recomputed from the signed
  * data under today's rules. Stored numbers are never trusted. An entry whose
  * card is missing, tampered with or no longer eligible is hidden (written
  * back once); an entry stored under older scoring is rewritten.
  */
-export async function currentBoard(store: Store, scan: number): Promise<BoardEntry[]> {
+export async function currentBoard(store: Store, scan: number, now = Date.now()): Promise<BoardEntry[]> {
   const stored = await store.listBoard(scan);
   const ring = loadKeyRing();
   const out: BoardEntry[] = [];
   await Promise.all(
     stored.map(async (entry) => {
-      const card = (await store.getCard(entry.cardId))?.card ?? null;
-      const trusted = card && verifySigned(card, ring) ? card.payload : null;
+      const { card, trusted } = await verifiedCard(store, entry.cardId, ring, now);
       const next = reconcileBoardEntry(entry, trusted);
       if (next) {
         out.push(next);
@@ -35,6 +70,7 @@ export async function currentBoard(store: Store, scan: number): Promise<BoardEnt
       }
       const why = trusted ? boardEligibility(trusted) : null;
       const reason = !card ? 'card-missing' : !trusted ? 'bad-signature' : why && !why.ok ? why.reason : 'card-mismatch';
+      memo.delete(entry.cardId);
       await store.hideBoardEntry(entry.cardId, reason).catch(() => undefined);
     }),
   );
@@ -56,8 +92,8 @@ export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const range: BoardRange = url.searchParams.get('range') === 'all' ? 'all' : 'week';
   const tellOnly = url.searchParams.get('tell') === '1';
-  const entries = rankBoard(await currentBoard(store, SCAN), { range, tellOnly, now, limit: BOARD_PAGE });
-  return withCors(req, json({ entries, range, tellOnly, now }));
+  const entries = rankBoard(await currentBoard(store, SCAN, now), { range, tellOnly, now, limit: BOARD_PAGE });
+  return withCors(req, json({ entries, range, tellOnly, now }, 200, { 'cache-control': BOARD_CACHE }));
 }
 
 /**

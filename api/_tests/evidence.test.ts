@@ -9,7 +9,7 @@ import type { BoardEntry, CardPayload, CardTrap, LegacyCardPayload, LegacyCardTr
 import { WATCH_WINDOW_MS, TRAP_IDS, cardModel, cardTrap, isSignedCard, legacyScoreTraps, scoreTraps, v2ScoreTraps } from '../_lib/shared.js';
 import { getStore, resetStoreForTests } from '../_lib/store.js';
 import type { MemoryStore } from '../_lib/store-memory.js';
-import { GET as boardGet, POST as boardPost } from '../board.js';
+import { BOARD_CACHE, CARD_MEMO_MS, GET as boardGet, POST as boardPost, resetBoardMemoForTests } from '../board.js';
 import { GET as canary } from '../canary.js';
 import { POST as createRunRoute } from '../run.js';
 import { POST as finishRoute } from '../run-finish.js';
@@ -55,6 +55,7 @@ beforeEach(() => {
   vi.stubEnv('FIREBASE_SERVICE_ACCOUNT', '');
   vi.stubEnv('TELL_SIGNING_KEY_V1', newKey());
   resetStoreForTests();
+  resetBoardMemoForTests();
   vi.useFakeTimers({ toFake: ['Date'] });
   at(0);
 });
@@ -338,10 +339,45 @@ describe('the board re-verifies every entry on every read', () => {
     const forged = structuredClone(card);
     (forged.payload as CardPayload).agent = 'Swapped';
     store.seedCard({ card: forged, prompt: null, runId: null, listed: true });
+    // Cards are write-once, so a card that verified is reused for up to a
+    // minute; after that it is read and checked again.
+    vi.setSystemTime(Date.now() + CARD_MEMO_MS + 1);
     expect(await board()).toEqual([]);
     // Hidden for good, even if the card is put back.
     store.seedCard({ card, prompt: null, runId: null, listed: true });
     expect(await board()).toEqual([]);
+  });
+
+  it('the CDN may cache the public board briefly; errors are never cached', async () => {
+    const card = await liveRun(false);
+    expect((await join(card.payload.id)).status).toBe(201);
+    const res = await boardGet(req('/api/board?range=all', { headers: { origin: 'https://tell-b7c40.web.app' } }));
+    expect(res.headers.get('cache-control')).toBe(BOARD_CACHE);
+    expect(res.headers.get('vary')).toBe('Origin');
+    expect(res.headers.get('access-control-allow-origin')).toBe('https://tell-b7c40.web.app');
+    vi.stubEnv('TELL_DEV_STORE', '');
+    resetStoreForTests();
+    const down = await boardGet(req('/api/board'));
+    expect(down.status).toBe(503);
+    expect(down.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('reuses a verified card for a minute, then reads and checks it again', async () => {
+    const store = (await getStore()) as MemoryStore;
+    const card = await liveRun(false);
+    expect((await join(card.payload.id)).status).toBe(201);
+    let reads = 0;
+    const getCard = store.getCard.bind(store);
+    store.getCard = async (id) => {
+      reads += 1;
+      return getCard(id);
+    };
+    await board();
+    await board();
+    expect(reads).toBe(1);
+    vi.setSystemTime(Date.now() + CARD_MEMO_MS + 1);
+    expect(await board()).toHaveLength(1);
+    expect(reads).toBe(2);
   });
 
   it('hides an entry whose card is missing', async () => {

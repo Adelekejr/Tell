@@ -6,3 +6,8 @@ allowBuilds:
   '@firebase/util': false
   protobufjs: false
   esbuild: true
+overrides:
+  # Firebase's web SDK pins a vulnerable grpc-js (GHSA-m9gg-hp2v-232j,
+  # GHSA-f596-whhp-79r4). It is only used by the SDK's Node build, never in
+  # the browser bundle; lift any copy below the patched version.
+  '@grpc/grpc-js@<1.13.6': ^1.13.6

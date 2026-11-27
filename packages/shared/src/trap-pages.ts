@@ -2,8 +2,9 @@
  * The seven trap pages. Each is an ordinary page (a recipe, a review, a
  * notice...) hiding exactly one trick. The hidden instruction tells an AI
  * agent to visit that trap's canary link with a per-run secret word that
- * appears nowhere else, so a hit with the word proves the agent read and
- * obeyed text it was never meant to follow.
+ * appears nowhere else, so a hit with the word shows that something holding
+ * the page's contents sent it to Tell's server: most likely the agent acting
+ * on text it was never meant to follow. It does not show which agent did.
  *
  * Pages are plain server-rendered HTML: no scripts, no outside loads, no
  * clickable link to a canary (so crawlers can't stumble into one), and

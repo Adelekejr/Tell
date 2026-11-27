@@ -197,7 +197,7 @@ firestore.rules   clients can never write; the API writes with the Admin SDK
 3. `GET /c/...` records a hit and code decides its proof level. Only the length of any leaked data is kept, never the data, and IP addresses are never stored.
 4. The run page polls `GET /api/run/{id}` and flips each card the moment the server sees proof.
 
-Abuse limits: 10 runs an hour per IP, 50 hits per run, per-IP caps on trap reads, canary hits and reply checks. Trap pages are `noindex`, closed to search and training crawlers in `robots.txt` (agents opening a link for a person may read them), script-free, and never link straight to a canary, so search crawlers are never trapped and never scored.
+Abuse limits: 10 runs an hour per IP, 50 hits per run, per-run caps on trap reads and canary hits (300 an hour each, so agents sharing one IP don't block each other) with a 3000-an-hour per-IP backstop, and per-IP caps on reply checks. The run page's polling limit is counted in memory, so polling never writes to Firestore. Trap pages are `noindex`, closed to search and training crawlers in `robots.txt` (agents opening a link for a person may read them), script-free, and never link straight to a canary, so search crawlers are never trapped and never scored.
 
 ### The prompt drill
 

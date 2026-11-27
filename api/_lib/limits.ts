@@ -7,8 +7,15 @@ const HOUR = 60 * 60 * 1000;
 /** Abuse limits, per hashed IP per hour unless noted. */
 export const LIMITS = {
   runCreate: { limit: 10, windowMs: HOUR },
+  /**
+   * Canary visits and trap-page reads are counted per RUN, so many agents
+   * behind one shared egress IP (a cloud browser, a company proxy) don't
+   * starve each other. A loose per-IP backstop still caps one caller.
+   */
   canary: { limit: 300, windowMs: HOUR },
   trapRead: { limit: 300, windowMs: HOUR },
+  canaryIp: { limit: 3000, windowMs: HOUR },
+  trapReadIp: { limit: 3000, windowMs: HOUR },
   reply: { limit: 30, windowMs: HOUR },
   finish: { limit: 60, windowMs: HOUR },
   /** Page fetches for the check page (POST /api/fetch). */
@@ -86,6 +93,11 @@ export function allowLocal(name: LimitName, who: string, now: number): boolean {
 /** Tests only. */
 export function resetLocalLimitsForTests(): void {
   local.clear();
+}
+
+/** The key for a per-run limit; never collides with a hashed IP. */
+export function runKey(runId: string): string {
+  return `run-${runId}`;
 }
 
 export async function allow(store: Store, name: LimitName, who: string, now: number): Promise<boolean> {

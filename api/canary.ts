@@ -1,6 +1,6 @@
 import { isNonVisit } from './_lib/bots.js';
 import { NOINDEX_HEADERS } from './_lib/http.js';
-import { allow, clientIp, ipKey } from './_lib/limits.js';
+import { allow, clientIp, ipKey, runKey } from './_lib/limits.js';
 import { recordCanary } from './_lib/runs.js';
 import { demoTrap, runAndTrap } from './_lib/route.js';
 import { getStore } from './_lib/store.js';
@@ -24,7 +24,8 @@ function reply(req: Request, trap: string | null): Response {
  * GET /c/{runId}/{trapId}?w={word}&d={data}
  * The canary. Code decides the proof level (see classifyCanary). Only the
  * length of any `d` data is stored, never the data. Expired or finished runs,
- * the 50-hit cap and per-IP limits all drop the hit silently. Demo canaries
+ * the 50-hit cap, the per-run limit and the per-IP backstop all drop the
+ * hit silently. Demo canaries
  * (/c/demo/{trap}) answer the same way and record nothing.
  */
 export async function GET(req: Request): Promise<Response> {
@@ -36,9 +37,10 @@ export async function GET(req: Request): Promise<Response> {
   const store = await getStore();
   if (!store) return reply(req, ids.trapId);
   const now = Date.now();
-  if (!(await allow(store, 'canary', ipKey(clientIp(req), now), now))) return reply(req, ids.trapId);
+  if (!(await allow(store, 'canaryIp', ipKey(clientIp(req), now), now))) return reply(req, ids.trapId);
   const run = await store.getRun(ids.runId);
   if (!run) return reply(req, ids.trapId);
+  if (!(await allow(store, 'canary', runKey(ids.runId), now))) return reply(req, ids.trapId);
   const words = await store.getWords(ids.runId);
   if (!words) return reply(req, ids.trapId);
   const url = new URL(req.url);

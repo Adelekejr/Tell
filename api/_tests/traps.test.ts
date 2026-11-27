@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { identifyClient, isNonVisit } from '../_lib/bots.js';
 import { isRunId, newRunId, newWords } from '../_lib/ids.js';
-import { ipKey } from '../_lib/limits.js';
+import { LIMITS, allow, clientIp, ipKey, runKey } from '../_lib/limits.js';
 import { checkReply, normaliseReply } from '../_lib/reply.js';
 import { classifyCanary, recordCanary } from '../_lib/runs.js';
 import type { RunView } from '../_lib/shared.js';
@@ -279,6 +279,46 @@ describe('endpoints, end to end on the dev store', () => {
     expect(s.cards.map((c) => c.state)).toEqual(['waiting', 'fired', 'suspicious', 'waiting', 'waiting', 'suspicious', 'waiting']);
     expect(s.tally).toEqual({ fired: 1, reported: 0, quiet: 0, suspicious: 2, waiting: 4 });
     expect(s.events[0]).toMatchObject({ trapId: 'postcard', kind: 'bot', client: 'Slackbot' });
+  });
+
+  it('canary limits are per run: one busy run behind a shared IP never blocks another run', async () => {
+    const busy = await newRun();
+    const other = await newRun();
+    const store = (await getStore())!;
+    for (let i = 0; i < LIMITS.canary.limit; i += 1) await allow(store, 'canary', runKey(busy.id), Date.now());
+    // The busy run is now over its own limit: a correct word is dropped silently.
+    const wBusy = await wordFor(busy.id, 2);
+    await canary(req(`/c/${busy.id}/2?w=${wBusy}`));
+    expect((await state(busy.id)).cards[1]?.state).not.toBe('fired');
+    // Same IP, different run: still counted.
+    const wOther = await wordFor(other.id, 2);
+    await canary(req(`/c/${other.id}/2?w=${wOther}`));
+    expect((await state(other.id)).cards[1]?.state).toBe('fired');
+  });
+
+  it('a per-IP backstop still caps one caller across runs', async () => {
+    const run = await newRun();
+    const store = (await getStore())!;
+    const now = Date.now();
+    const who = ipKey(clientIp(req('/x')), now);
+    for (let i = 0; i < LIMITS.canaryIp.limit; i += 1) await allow(store, 'canaryIp', who, now);
+    const w = await wordFor(run.id, 2);
+    await canary(req(`/c/${run.id}/2?w=${w}`));
+    expect((await state(run.id)).cards[1]?.state).not.toBe('fired');
+    expect(LIMITS.canaryIp.limit).toBeGreaterThanOrEqual(3000);
+    expect(LIMITS.trapReadIp.limit).toBeGreaterThanOrEqual(3000);
+  });
+
+  it('trap reads are limited per run too, with the same backstop', async () => {
+    const store = (await getStore())!;
+    const run = await newRun();
+    const now = Date.now();
+    for (let i = 0; i < LIMITS.trapRead.limit; i += 1) await allow(store, 'trapRead', runKey(run.id), now);
+    await trapRoute(req(`/t/${run.id}/1`));
+    expect((await state(run.id)).cards[0]?.reason).toBe('not-reached');
+    const other = await newRun();
+    await trapRoute(req(`/t/${other.id}/1`));
+    expect((await state(other.id)).cards[0]?.reason).toBe('reading');
   });
 
   it('Finish waits out the watch window (closing), then a fetched trap shows no canary', async () => {

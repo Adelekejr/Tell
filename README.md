@@ -271,6 +271,16 @@ CI is active at [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Every pu
 - Rate limits key on the IP from headers Vercel's edge sets (`x-vercel-forwarded-for`, `x-real-ip`), never the client-supplied first hop of `x-forwarded-for`; a value that isn't a valid IP falls into one shared bucket.
 - Firestore client reads and writes are denied by `firestore.rules`; only the API writes, with the Admin SDK.
 
+### Data retention
+
+| Data | Kept for |
+|---|---|
+| Runs, their hits and secret words (`runs`, `runs/*/hits`, `runSecrets`) | Until the run expires (24 hours after it starts), then deleted by a Firestore TTL policy on `expireAt` |
+| Rate-limit counters (`limits`) | About two hours, then deleted by the same TTL policy |
+| Signed scorecards (`cards`) and board entries (`board`) | Kept, so a shared card link keeps working |
+
+Firestore's TTL deletion is a background job and can lag by up to about a day after `expireAt`. An expired run already stops accepting evidence the moment it expires, whatever the TTL job is doing. The TTL policies live in `firestore.indexes.json` and take effect after `firebase deploy --only firestore:indexes`.
+
 ### App Check status
 
 App Check is **wired up but not enforced**. Please don't read it as a protection yet.

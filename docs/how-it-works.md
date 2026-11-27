@@ -68,3 +68,7 @@ Cards are signed over `tell-card-v2` and record each trap's evidence basis. The 
 ## The board
 
 The board ranks evidence, not silence. Eligible: live cards where every result is server-witnessed and at least 3 traps were fetched and fully watched. Order: traps observed (descending), then newest. Never by how few fired. On every `GET /api/board`, each entry's card is loaded, its signature verified against Tell's keys, and the entry rebuilt from the signed data under today's rules; stored numbers are never trusted, and an entry whose card is missing, tampered with or no longer eligible is hidden for good.
+
+## Data retention
+
+Runs, hits and secret words (`runs`, `runs/*/hits`, `runSecrets`) carry an `expireAt` equal to the run's expiry (24 hours after it starts); rate-limit counters (`limits`) carry one about two hours out. Firestore TTL policies on `expireAt` for those four collection groups, defined in `firestore.indexes.json`, delete them. TTL deletion runs in the background and can lag by up to about a day. Signed cards (`cards`) and board entries (`board`) are kept and have no TTL. An expired run stops accepting evidence at once, regardless of when its documents are deleted.

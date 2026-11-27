@@ -52,11 +52,36 @@ export function clientIp(req: Request, onVercel = Boolean(process.env.VERCEL)): 
   return 'unknown';
 }
 
+let warnedSalt = false;
+
+/**
+ * Is TELL_HASH_SALT set? On Vercel a missing salt falls back to a public
+ * default, which still never stores an IP but makes the hashes guessable,
+ * so it warns once (never echoing any value) and /api/health reports it.
+ */
+export function hashSaltStatus(env: NodeJS.ProcessEnv = process.env): 'ok' | 'not-configured' {
+  return env.TELL_HASH_SALT ? 'ok' : 'not-configured';
+}
+
+/** Warns once per instance when running on Vercel without TELL_HASH_SALT. Never throws. */
+export function warnIfNoHashSalt(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (warnedSalt || !env.VERCEL || hashSaltStatus(env) === 'ok') return false;
+  warnedSalt = true;
+  console.warn('[tell-api] TELL_HASH_SALT is not set; rate-limit keys use the public default salt. Set it in Vercel.');
+  return true;
+}
+
+/** Tests only. */
+export function resetSaltWarningForTests(): void {
+  warnedSalt = false;
+}
+
 /**
  * The IP is never stored. Rate-limit keys use a salted hash whose salt
  * changes every day, so yesterday's keys can't be linked to today's.
  */
 export function ipKey(ip: string, now: number, salt = process.env.TELL_HASH_SALT || 'tell-dev-salt'): string {
+  if (!process.env.TELL_HASH_SALT) warnIfNoHashSalt();
   const day = new Date(now).toISOString().slice(0, 10);
   return createHash('sha256').update(`${salt}|${day}|${ip}`).digest('hex').slice(0, 24);
 }

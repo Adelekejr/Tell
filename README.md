@@ -264,7 +264,7 @@ CI is active at [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Every pu
 
 ## Privacy and security
 
-- No IP address is stored. Rate limits use a salted hash of it.
+- No IP address is stored. Rate limits use a salted hash of it, with a daily-changing salt built from `TELL_HASH_SALT`. If that variable is missing on Vercel, the API logs one warning and `/api/health` reports `hashSalt: not-configured` (the value itself is never returned).
 - When a trap tries to carry data out, only the length of that data is kept, never the data.
 - Pasted text on the check page and drill prompts stay in the browser (unless you allow the cloud for an explanation).
 - Server keys (service account, signing key) live only in Vercel's environment settings. No `.env` file is committed, and CI scans for secrets.

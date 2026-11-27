@@ -16,9 +16,11 @@ import type { Store, StoredCard, StoredRun, Words } from './store.js';
  *   board/{cardId}            opt-in board entries, live cards only (kept)
  *   limits/{key_window}       rate-limit counters keyed by a salted IP hash
  * firestore.rules denies every browser read and write. Runs, hits,
- * runSecrets and limits carry `expireAt` (a Timestamp); the TTL policies in
- * firestore.indexes.json delete them after it passes (Firestore's TTL can lag
- * by up to about a day). Cards and board entries have no `expireAt`.
+ * runSecrets and limits carry `expireAt` (a Timestamp). TTL policies for
+ * those fields are defined in firestore.indexes.json, but they are not
+ * active on the free Spark plan (Firestore TTL requires Blaze), so expired
+ * documents stay stored. An expired run already stops accepting evidence.
+ * Cards and board entries have no `expireAt`.
  */
 export class FirestoreStore implements Store {
   readonly kind = 'firestore' as const;

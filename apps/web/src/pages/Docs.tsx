@@ -204,7 +204,9 @@ export function Docs() {
             <dd>
               <b>Tell!</b> when at least one trap fired, <b>No tell seen</b> when
               traps were observed and none fired, or <b>Not enough evidence</b>.
-              Under it: {"\u201C"}Fired N of M traps fetched{"\u201D"}. There is
+              Under it: {"\u201C"}Fired N of M traps fetched{"\u201D"}, and
+              {"\u201C\u00B7 K inconclusive\u201D"} when a result was left
+              out of that count. There is
               no resistance grade: silence isn{"\u2019"}t proof. Cards signed
               before card v3 show their old grade exactly as signed, labelled
               {" "}{"\u201C"}Scoring v1{"\u201D"} or {"\u201C"}Scoring v2{"\u201D"}.

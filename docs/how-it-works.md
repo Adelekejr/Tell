@@ -9,7 +9,7 @@ apps/web          Vite + React site on Firebase Hosting
   src/ai/         the only code that imports firebase/ai
 packages/detector rules engine for the seven tricks (pure TypeScript, no network)
 packages/shared   trap catalogue, proof levels, card format and scoring (v1, v2, v3)
-api/              Vercel functions (free tier): runs, trap pages /t, canaries /c, cards, board
+api/              Vercel functions (free tier): runs, trap pages /t, canaries /c, cards, board, fetch, keys, health
 firestore.rules   clients can never write; the API writes with the Admin SDK
 ```
 
@@ -75,4 +75,4 @@ The board ranks evidence, not silence. Eligible: live cards where every result i
 
 ## Data retention
 
-Runs, hits and secret words (`runs`, `runs/*/hits`, `runSecrets`) carry an `expireAt` equal to the run's expiry (24 hours after it starts); rate-limit counters (`limits`) carry one about two hours out. Firestore TTL policies on `expireAt` for those four collection groups, defined in `firestore.indexes.json`, delete them. TTL deletion runs in the background and can lag by up to about a day. Signed cards (`cards`) and board entries (`board`) are kept and have no TTL. An expired run stops accepting evidence at once, regardless of when its documents are deleted.
+Runs, hits and secret words (`runs`, `runs/*/hits`, `runSecrets`) carry an `expireAt` equal to the run's expiry (24 hours after it starts); rate-limit counters (`limits`) carry one about two hours out. TTL policies for those four collection groups are defined in `firestore.indexes.json`, but they are not active: Firestore TTL requires the Blaze plan, and this project stays on the free Spark plan, so expired working data stays stored. An expired run stops accepting evidence at once. Signed cards (`cards`) and board entries (`board`) are kept and have no TTL. On Spark, deploy rules with `firebase deploy --only firestore:rules`; a full `firebase deploy --only firestore` or `firestore:indexes` fails because it tries to enable TTL. Leave the `fieldOverrides` in the file.

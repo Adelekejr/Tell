@@ -312,8 +312,8 @@ export function How() {
             the box.
           </li>
           <li>
-            IP addresses are never stored; rate limits use a salted hash that is
-            dropped daily.
+            IP addresses are never stored; rate limits use a salted hash whose
+            salt changes every day.
           </li>
           <li>
             Canary hits keep only the length of any leaked data, never the data.

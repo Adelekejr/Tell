@@ -38,4 +38,15 @@ describe('docs stay in step with the code', () => {
     expect(appCheck).toMatch(/not enforced/);
     expect(appCheck).not.toMatch(/App Check is (now )?enforced/i);
   });
+
+  it('does not claim Firestore TTL is deleting data on the free plan', () => {
+    for (const doc of [readme, how]) {
+      expect(doc).toMatch(/not active/);
+      expect(doc).toMatch(/Spark/);
+      expect(doc).toMatch(/Blaze/);
+      expect(doc).toMatch(/expired working data stays stored/);
+      expect(doc).not.toMatch(/then deleted by a Firestore TTL policy/);
+      expect(doc).not.toMatch(/defined in `firestore\.indexes\.json`, delete them/);
+    }
+  });
 });

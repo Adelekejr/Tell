@@ -60,4 +60,4 @@ The "Try it" section shows a made-up sample card at `/card/sample`. It is signed
 
 ## Board storage
 
-Cards and board entries live in Firestore and are written only by the API. The Firestore rules block all client reads and writes, so the browser reads them through `/api/card/:id` and `/api/board`. Deploy rules and indexes with `firebase deploy --only firestore`.
+Cards and board entries live in Firestore and are written only by the API. The Firestore rules block all client reads and writes, so the browser reads them through `/api/card/:id` and `/api/board`. Deploy rules with `firebase deploy --only firestore:rules`. A full `firebase deploy --only firestore` (or `:indexes`) tries to enable the TTL `fieldOverrides` in `firestore.indexes.json` and fails on the free Spark plan (Firestore TTL requires Blaze). Leave those overrides in the file; they are not active on this project.
